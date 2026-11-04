@@ -24,7 +24,7 @@ import type { BotContext } from '../../core/context.js';
 import { clip, fullName } from '../../core/format.js';
 import { escapeHtml, renderMenu, say } from '../../core/ui.js';
 import { sectionCb, type StaffSectionModule } from '../section-module.js';
-import { entryButton, entryLine, periodLabel, statsText } from './format.js';
+import { entryButton, entryLine, periodLabel, statsText } from '../../person/journal-format.js';
 import { GradeEntryFlow } from './grade-entry.flow.js';
 import { JournalTextFlow } from './journal-text.flow.js';
 

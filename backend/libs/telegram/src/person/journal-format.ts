@@ -3,8 +3,8 @@ import { deltaMark, entryKindText, entryValueText, trim } from '@modules/gradebo
 import { scaleValueLabel } from '@modules/gradebook/gradebook.rules.js';
 import type { JournalCard } from '@modules/gradebook/gradebook.query.js';
 import type { GradeEntryRow } from '@modules/gradebook/schema.js';
-import type { BotContext } from '../../core/context.js';
-import { escapeHtml } from '../../core/ui.js';
+import type { BotContext } from '../core/context.js';
+import { escapeHtml } from '../core/ui.js';
 
 const DATE = 'dd.MM';
 
