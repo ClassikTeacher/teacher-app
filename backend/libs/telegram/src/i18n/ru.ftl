@@ -1401,9 +1401,16 @@ ntf-grade-added = { $type ->
     [tests] 📈 Результат теста
     [custom] 🌟 Новая отметка
    *[school] 📊 Новая отметка
-} по предмету <b>{ $subject }</b> (учитель { $teacher }): <b>{ $value }</b>{ $kindLine }, { $date }.{ $source ->
-    [teacher] {""}
-   *[other] {" "}Учитель подтвердил внесённую вами отметку.
+} по предмету <b>{ $subject }</b> (учитель { $teacher }): <b>{ $value }</b>{ $kindLine }, { $date }.{ $mode ->
+    [confirmed] {" "}Учитель подтвердил отметку, которую { $source ->
+        [parent] внёс родитель
+       *[student] вы внесли
+      }.
+    [auto] {" "}Отметку { $source ->
+        [parent] внёс родитель
+       *[student] внесли вы
+      }.
+   *[teacher] {""}
   }{ $commentLine }
 ntf-grade-digest = 📊 Сегодня учитель { $teacher } добавил ещё несколько отметок по предмету <b>{ $subject }</b>. Откройте «Успеваемость», чтобы посмотреть все.
 ntf-grade-proposed = 📝 { $by }{ $source ->

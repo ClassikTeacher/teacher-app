@@ -69,7 +69,9 @@ export class IcsUseCase {
       throw AppError.forbidden('No calendar for this role');
     const now = this.clock.now();
     return this.txm.run(async () => {
-      const existing = await this.feeds.findLive(actor.accountId, { forUpdate: true });
+      // two rotations at once (a double tap): the second waits and revokes the first's fresh link, no 23505
+      await this.feeds.lockAccount(actor.accountId);
+      const existing = await this.feeds.findLive(actor.accountId);
       if (existing) await this.feeds.revoke(existing.id, now);
       const token = randomBytes(32).toString('base64url');
       const row = await this.feeds.insert(actor.accountId, hashIcsToken(token));
@@ -127,7 +129,7 @@ export class IcsUseCase {
     const out: IcsEvent[] = [];
     const allowed = new Map<string, boolean>();
     for (const v of views) {
-      if (v.lesson.status === 'cancelled') continue;
+      if (v.lesson.status === 'cancelled' || v.lesson.status === 'not_held') continue;
       let ok = allowed.get(v.teacher.id);
       if (ok === undefined) {
         ok = await this.features.isEnabled(v.teacher.id, 'calendar.ics');

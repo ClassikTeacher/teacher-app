@@ -66,7 +66,11 @@ export const testKind = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (t) => [uniqueIndex('test_kind_owner_name_uniq').on(t.ownerId, sql`lower(${t.name})`)],
+  (t) => [
+    uniqueIndex('test_kind_owner_name_uniq')
+      .on(t.ownerId, sql`lower(${t.name})`)
+      .where(sql`${t.archivedAt} IS NULL`),
+  ],
 );
 export type TestKindRow = typeof testKind.$inferSelect;
 
@@ -215,6 +219,11 @@ export const report = pgTable(
     sentAt: tstz('sent_at'),
     ...timestamps(),
   },
-  (t) => [index('report_teacher_student_idx').on(t.teacherId, t.studentId, t.createdAt)],
+  (t) => [
+    index('report_teacher_student_idx').on(t.teacherId, t.studentId, t.createdAt),
+    index('report_student_idx')
+      .on(t.studentId, t.sentAt)
+      .where(sql`${t.status} = 'sent'`),
+  ],
 );
 export type ReportRow = typeof report.$inferSelect;

@@ -5,6 +5,7 @@ import { AppError } from '@shared/errors/app-error.js';
 import { isUuid } from '@shared/ids/index.js';
 import { Clock } from '@shared/time/clock.js';
 import type { Actor } from '@modules/access/actor.js';
+import { FeatureService } from '@modules/access/features/feature.service.js';
 import { entryKindText, entryValueText } from '@modules/gradebook/format.js';
 import { GradeEntriesUseCase } from '@modules/gradebook/grade-entries.use-case.js';
 import { GradeEntryRepository } from '@modules/gradebook/grade-entry.repository.js';
@@ -54,6 +55,7 @@ export class JournalsSection implements StaffSectionModule {
     private readonly homework: HomeworkQuery,
     private readonly files: FileRepository,
     private readonly delivery: FileDeliveryService,
+    private readonly features: FeatureService,
     private readonly entryFlow: GradeEntryFlow,
     private readonly textFlow: JournalTextFlow,
     private readonly clock: Clock,
@@ -164,13 +166,14 @@ export class JournalsSection implements StaffSectionModule {
       if (!AppError.is(error, 'NOT_FOUND')) throw error;
       return this.open(ctx, actor);
     }
+    const reportsOn = await this.features.isEnabled(actor.accountId, 'reports');
     const kb = new InlineKeyboard();
     for (const j of view.journals) {
       const mark = j.journal.hidden ? '🙈 ' : '';
       const label = `${mark}${j.subject?.name ?? '—'} · ${ctx.t('journal-type', { type: j.journal.type })} (${j.count})`;
       kb.text(clip(label, 40), sectionCb('journals', 'j', j.journal.id)).row();
     }
-    kb.text(ctx.t('btn-report'), sectionCb('reports', 'list', linkId)).row();
+    if (reportsOn) kb.text(ctx.t('btn-report'), sectionCb('reports', 'list', linkId)).row();
     kb.text(ctx.t('btn-back'), sectionCb('journals', 'list'));
     await renderMenu(
       ctx,
@@ -253,7 +256,13 @@ export class JournalsSection implements StaffSectionModule {
   private async entry(ctx: BotContext, actor: Actor, entryId: string): Promise<void> {
     const entry = await this.ownEntry(actor, entryId);
     if (!entry) return this.open(ctx, actor);
-    const card = await this.query.teacherCard(actor, entry.journalId);
+    let card: JournalCard;
+    try {
+      card = await this.query.teacherCard(actor, entry.journalId);
+    } catch (error) {
+      if (!AppError.is(error, 'NOT_FOUND') && !AppError.is(error, 'FEATURE_DISABLED')) throw error;
+      return this.open(ctx, actor);
+    }
     const kb = new InlineKeyboard();
     if (entry.status === 'pending')
       kb.text(ctx.t('btn-grade-confirm'), sectionCb('journals', 'ok', entry.id))
@@ -321,7 +330,12 @@ export class JournalsSection implements StaffSectionModule {
     try {
       await this.entries.remove(actor, entryId);
     } catch (error) {
-      if (!AppError.is(error, 'NOT_FOUND') && !AppError.is(error, 'LINK_NOT_ACTIVE')) throw error;
+      if (
+        !AppError.is(error, 'NOT_FOUND') &&
+        !AppError.is(error, 'LINK_NOT_ACTIVE') &&
+        !AppError.is(error, 'FEATURE_DISABLED')
+      )
+        throw error;
       await say(ctx, ctx.t('callback-stale'));
     }
     return this.journal(ctx, actor, entry.journalId, null);
@@ -337,7 +351,7 @@ export class JournalsSection implements StaffSectionModule {
     try {
       await this.journals.toggle(actor, journalId, flag[action]);
     } catch (error) {
-      if (!AppError.is(error, 'NOT_FOUND')) throw error;
+      if (!AppError.is(error, 'NOT_FOUND') && !AppError.is(error, 'FEATURE_DISABLED')) throw error;
       return this.open(ctx, actor);
     }
     return this.journal(ctx, actor, journalId, null);

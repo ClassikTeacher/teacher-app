@@ -50,7 +50,8 @@ CREATE TABLE test_kind (
   archived_at  timestamptz,
   created_at   timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX test_kind_owner_name_uniq ON test_kind (owner_id, lower(name)) NULLS NOT DISTINCT;
+CREATE UNIQUE INDEX test_kind_owner_name_uniq ON test_kind (owner_id, lower(name)) NULLS NOT DISTINCT
+  WHERE archived_at IS NULL;  -- a removed (archived) kind may be added again
 
 INSERT INTO test_kind (id, owner_id, name, position) VALUES
   ('019a0000-0000-7000-8000-0000000000b1', NULL, 'ЦТ', 10),

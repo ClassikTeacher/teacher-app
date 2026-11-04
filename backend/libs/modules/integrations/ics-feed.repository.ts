@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { TransactionManager } from '@shared/db/transaction-manager.js';
 import { newId } from '@shared/ids/index.js';
 import { icsFeed, type IcsFeedRow } from './schema.js';
@@ -27,6 +27,11 @@ export class IcsFeedRepository {
       .where(and(eq(icsFeed.tokenHash, tokenHash), isNull(icsFeed.revokedAt)))
       .limit(1);
     return rows[0] ?? null;
+  }
+
+  /** Transaction-scoped advisory lock serialising issue/rotate of one account. */
+  async lockAccount(accountId: string): Promise<void> {
+    await this.txm.db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`ics:${accountId}`}))`);
   }
 
   async insert(accountId: string, tokenHash: string): Promise<IcsFeedRow> {

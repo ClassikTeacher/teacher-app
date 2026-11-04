@@ -82,6 +82,7 @@ describe('notification templates', () => {
             kindLine: ' · контрольная',
             commentLine: '',
             body: 'Отчёт',
+            mode: 'teacher',
           },
         }),
         code,

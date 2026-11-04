@@ -10,6 +10,7 @@ import {
   MAX_ENTRY_COMMENT_LENGTH,
   scaleValueLabel,
 } from '@modules/gradebook/gradebook.rules.js';
+import { GradeEntryRepository } from '@modules/gradebook/grade-entry.repository.js';
 import { JournalRepository } from '@modules/gradebook/journal.repository.js';
 import { JournalsUseCase } from '@modules/gradebook/journals.use-case.js';
 import {
@@ -82,6 +83,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
     private readonly entries: GradeEntriesUseCase,
     private readonly journals: JournalsUseCase,
     private readonly repo: JournalRepository,
+    private readonly entryRepo: GradeEntryRepository,
     private readonly query: GradebookQuery,
     private readonly ingest: IngestFileUseCase,
     private readonly clock: Clock,
@@ -116,6 +118,11 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
     if (data.journalId) {
       const journal = await this.repo.findById(data.journalId);
       data.type = journal?.type ?? null;
+    }
+    if (data.entryId) {
+      const entry = await this.entryRepo.findById(data.entryId);
+      data.max = entry?.valueMax ?? null;
+      data.parts = entry?.parts ?? null;
     }
     const step = data.journalId ? 'value' : 'journal';
     const state: FlowState = { name: this.name, step, data, startedAt: Date.now() };
@@ -153,6 +160,13 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
         }
         const link = await this.journals.activeLink(ctx.actor.actor.accountId, studentId);
         if (!link) {
+          // a participant who has since left: skip to the next one of a group lesson, or stop
+          if ((d.studentIds?.length ?? 0) > 1) {
+            await say(ctx, ctx.t('grade-link-inactive'));
+            const result = await this.next(ctx, d);
+            if ('goto' in result) await this.steps[result.goto]!.enter(ctx, d);
+            return;
+          }
           ctx.session.flow = undefined;
           await renderMenu(ctx, ctx.t('grade-link-inactive'), this.backKb(ctx, d));
           return;
@@ -250,8 +264,9 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
         const num = (s: string | undefined) => (s === undefined ? null : Number(s.replace(',', '.')));
         d.value = num(m[1]);
         if (d.type === 'tests') {
-          d.max = num(m[2]) ?? DEFAULT_TEST_MAX;
-          d.parts = m[3] !== undefined ? { a: num(m[3])!, b: num(m[4])! } : null;
+          // an edit keeps the maximum and the parts of the record unless typed anew («45» → 45 of the old 60)
+          d.max = num(m[2]) ?? (d.entryId ? d.max : null) ?? DEFAULT_TEST_MAX;
+          d.parts = m[3] !== undefined ? { a: num(m[3])!, b: num(m[4])! } : d.entryId ? d.parts : null;
         } else if (!Number.isInteger(d.value) || d.value! < 1 || d.value! > 10) {
           await say(ctx, ctx.t('grade-value-invalid'));
           return { stay: true };
@@ -435,9 +450,9 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
       category: d.category,
       testKindId: d.testKindId,
       comment: d.comment,
-      fileId: d.fileId ?? null,
     };
     try {
+      // an edit keeps the scan of a test record (the file step is skipped); a new record attaches the upload
       if (d.entryId) await this.entries.update(actor, d.entryId, values);
       else
         await this.entries.add(actor, {
@@ -445,6 +460,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
           date: d.date,
           lessonId: d.lessonId ?? null,
           assignmentId: d.assignmentId ?? null,
+          fileId: d.fileId ?? null,
           ...values,
         });
     } catch (error) {

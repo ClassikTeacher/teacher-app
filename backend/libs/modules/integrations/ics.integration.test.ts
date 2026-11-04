@@ -101,4 +101,14 @@ describe('M6-04 ICS subscription (5.14.2): secret links per role, re-issue, feat
       .setTeacher(actor(adminId, 'ADMIN'), teacherId, 'calendar.ics', { enabled: true });
     expect(await ics.feed(tokenOf(studentUrl))).toContain('BEGIN:VEVENT');
   });
+
+  it('review M4: two rotations at once (a double tap) both succeed and exactly one link stays live', async () => {
+    const [a, b] = await Promise.all([
+      ics.rotate(actor(petyaId, 'STUDENT')),
+      ics.rotate(actor(petyaId, 'STUDENT')),
+    ]);
+    expect(a).not.toBe(b);
+    const results = await Promise.allSettled([ics.feed(tokenOf(a)), ics.feed(tokenOf(b))]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+  });
 });

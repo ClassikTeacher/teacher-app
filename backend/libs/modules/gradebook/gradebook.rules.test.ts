@@ -10,6 +10,22 @@ import {
   weightedAverage,
 } from './gradebook.rules.js';
 import { customStats, schoolStats, testDeltas, testStats } from './stats.js';
+import { parseScaleLines } from '../../telegram/src/staff-bot/journals/journal-text.flow.js';
+
+describe('custom scale text input (review H2)', () => {
+  it('keeps multi-word labels whole, reads the weight, takes only a symbol as the emoji', () => {
+    expect(
+      parseScaleLines('⭐ Отлично = 3\n👍 Хорошо = 2\n💪 Старайся\nОчень хорошо\n5 баллов\n10 = 2'),
+    ).toEqual([
+      { label: 'Отлично', emoji: '⭐', weight: 3 },
+      { label: 'Хорошо', emoji: '👍', weight: 2 },
+      { label: 'Старайся', emoji: '💪', weight: null },
+      { label: 'Очень хорошо', emoji: null, weight: null },
+      { label: '5 баллов', emoji: null, weight: null },
+      { label: '10', emoji: null, weight: 2 },
+    ]);
+  });
+});
 
 const ten = { minValue: 1, maxValue: 10 };
 

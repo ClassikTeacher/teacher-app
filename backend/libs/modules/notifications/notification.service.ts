@@ -89,6 +89,11 @@ export class NotificationService {
     return row;
   }
 
+  /** How many rows with the key prefix a recipient got in the period (NTF-07 thresholds). */
+  async countByPrefix(prefix: string, recipientId: string, from: Date, to: Date): Promise<number> {
+    return this.repo.countByPrefixForRecipient(prefix, recipientId, from, to);
+  }
+
   /** Cancels not-yet-sent notifications by key prefix, optionally for one recipient only (NTF-05). */
   async cancelByPrefix(prefix: string, recipientId?: string): Promise<number> {
     return this.repo.cancelByPrefix(prefix, recipientId);

@@ -140,20 +140,25 @@ export class JournalTextFlow extends Flow<JournalTextData> {
   }
 }
 
-const LINE = /^(\S+\s+)?(.+?)(?:\s*=\s*(\d+(?:[.,]\d+)?))?$/u;
+const WEIGHT = /\s*=\s*(\d+(?:[.,]\d+)?)\s*$/;
 
-/** «⭐ Отлично = 3» per line → scale values; a first token without letters is taken as the emoji. */
+/**
+ * «⭐ Отлично = 3» per line → scale values: the weight is cut off the end first, then the first token is the
+ * emoji only when it has no letters or digits («Очень хорошо», «5 баллов» stay whole labels).
+ */
 export function parseScaleLines(text: string): ScaleValueInput[] {
   return text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
     .map((line) => {
-      const m = LINE.exec(line);
-      if (!m) return { label: line };
-      const first = m[1]?.trim();
+      const w = WEIGHT.exec(line);
+      const weight = w ? Number(w[1]!.replace(',', '.')) : null;
+      const body = (w ? line.slice(0, w.index) : line).trim();
+      const space = body.search(/\s/);
+      const first = space > 0 ? body.slice(0, space) : null;
       const emoji = first && !/\p{L}|\p{N}/u.test(first) ? first : null;
-      const label = emoji ? m[2]! : `${first ?? ''}${m[2]!}`.trim();
-      return { label, emoji, weight: m[3] ? Number(m[3].replace(',', '.')) : null };
+      const label = emoji ? body.slice(space).trim() : body;
+      return { label, emoji, weight };
     });
 }

@@ -160,13 +160,17 @@ describe('M6-01/M6-02 gradebook: journals per subject, records with history, pro
     await drainOutbox(ctx, tdb);
     const added = (await sent('grade.added', petyaId)).sort((x, y) => x.dedupeKey.localeCompare(y.dedupeKey));
     expect(added).toHaveLength(2);
-    expect(added.find((n) => n.dedupeKey.startsWith(`grade.added:${a.id}:`))!.payload).toMatchObject({
+    expect(
+      added.find((n) => n.dedupeKey.startsWith(`grade.added:${teacherId}:${a.id}:`))!.payload,
+    ).toMatchObject({
       value: '8',
       subject: 'Математика',
       teacher: 'Анна User',
       kind: 'текущая',
     });
-    expect(added.find((n) => n.dedupeKey.startsWith(`grade.added:${b.id}:`))!.payload).toMatchObject({
+    expect(
+      added.find((n) => n.dedupeKey.startsWith(`grade.added:${teacherId}:${b.id}:`))!.payload,
+    ).toMatchObject({
       value: '6',
       kind: 'контрольная',
       comment: 'Невнимательность',
@@ -194,7 +198,7 @@ describe('M6-01/M6-02 gradebook: journals per subject, records with history, pro
     await drainOutbox(ctx, tdb);
     // the removed mark's pending notification is cancelled (NTF-05 spirit); an edit sends nothing new
     const forB = (await sent('grade.added', petyaId)).filter((n) =>
-      n.dedupeKey.startsWith(`grade.added:${b.id}:`),
+      n.dedupeKey.startsWith(`grade.added:${teacherId}:${b.id}:`),
     );
     expect(forB.map((n) => n.status)).toEqual(['cancelled']);
     expect(await sent('grade.added', petyaId)).toHaveLength(2);
@@ -246,6 +250,10 @@ describe('M6-01/M6-02 gradebook: journals per subject, records with history, pro
     expect(card.lookups.testKinds.get(custom.id)?.name).toBe('Олимпиада');
     await journals.removeTestKind(teacher(), custom.id);
     expect((await journals.testKinds(teacher())).some((k) => k.id === custom.id)).toBe(false);
+    // review H3: a removed kind may be added again under the same name
+    const again = await journals.addTestKind(teacher(), 'Олимпиада');
+    expect(again.id).not.toBe(custom.id);
+    await journals.removeTestKind(teacher(), again.id);
     // the archived kind still resolves on old records
     expect((await query.teacherCard(teacher(), tests.id)).lookups.testKinds.get(custom.id)?.name).toBe(
       'Олимпиада',
@@ -353,7 +361,7 @@ describe('M6-01/M6-02 gradebook: journals per subject, records with history, pro
     expect((await sent('grade.rejected', mamaId)).length).toBe(1);
     // the confirmed mark reaches the student — by now as part of today's digest (NTF-07: > 3 marks today)
     const direct = (await sent('grade.added', petyaId)).some((n) =>
-      n.dedupeKey.startsWith(`grade.added:${p1.id}:`),
+      n.dedupeKey.startsWith(`grade.added:${teacherId}:${p1.id}:`),
     );
     const digest = (await sent('grade.digest', petyaId)).length > 0;
     expect(direct || digest).toBe(true);
@@ -366,15 +374,23 @@ describe('M6-01/M6-02 gradebook: journals per subject, records with history, pro
 
   it('NTF-07: beyond three marks a day the student gets one digest instead of single messages', async () => {
     const school = await entries.journalFor(teacher(), petyaId, PHYSICS_ID, 'school');
-    const before = (await sent('grade.added', petyaId)).length;
-    for (const value of [5, 6, 7, 8, 9]) await entries.add(teacher(), { journalId: school.id, value });
+    ctx.clock.set('2026-11-05T10:00:00Z'); // a fresh day: the digest counter is per day
+    // review M3: edits must not count towards the digest — only what was announced today
+    const first = await entries.add(teacher(), { journalId: school.id, value: 5 });
     await drainOutbox(ctx, tdb);
-    const after = (await sent('grade.added', petyaId)).length;
-    expect(after - before).toBeLessThanOrEqual(3);
+    await entries.update(teacher(), first.id, { value: 4 });
+    await entries.update(teacher(), first.id, { value: 3 });
+    for (const value of [6, 7, 8, 9]) await entries.add(teacher(), { journalId: school.id, value });
+    await drainOutbox(ctx, tdb);
+    // the day's quota: the first mark plus two more one by one, the rest go to the digest
+    const today = (await sent('grade.added', petyaId)).filter((n) =>
+      n.dueAt.toISOString().startsWith('2026-11-05'),
+    );
+    expect(today).toHaveLength(3); // 1 announced before + 2 = the three of the day; the rest → digest
     const digests = await tdb.db
       .select()
       .from(notification)
-      .where(like(notification.dedupeKey, `grade.digest:${teacherId}:${petyaId}:%`));
+      .where(like(notification.dedupeKey, `grade.digest:${teacherId}:${petyaId}:2026-11-05`));
     expect(digests).toHaveLength(1);
   });
 

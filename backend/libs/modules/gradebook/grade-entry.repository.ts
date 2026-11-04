@@ -179,26 +179,6 @@ export class GradeEntryRepository {
       .orderBy(desc(gradeEntry.createdAt));
   }
 
-  /** Confirmed, live entries of a student at a teacher created on a calendar day (NTF-07 digest). */
-  async countConfirmedCreatedBetween(
-    teacherId: string,
-    studentId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number> {
-    return this.txm.db.$count(
-      gradeEntry,
-      and(
-        eq(gradeEntry.teacherId, teacherId),
-        eq(gradeEntry.studentId, studentId),
-        eq(gradeEntry.status, 'confirmed'),
-        isNull(gradeEntry.deletedAt),
-        gte(gradeEntry.updatedAt, from),
-        lte(gradeEntry.updatedAt, to),
-      ),
-    );
-  }
-
   // --- history ------------------------------------------------------------------------------------
 
   async addHistory(data: {

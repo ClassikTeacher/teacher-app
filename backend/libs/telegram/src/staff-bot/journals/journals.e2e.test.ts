@@ -221,6 +221,15 @@ describe('UC-29 e2e: journals in StaffBot — records, scale, test kinds, visibi
     const before = staff.tg.sentDocuments(teacherTg).length;
     await staff.press(teacher(), /04\.11 · 42\/60/);
     expect(staff.tg.sentDocuments(teacherTg).length).toBe(before + 1);
+    // review H1: editing the score keeps the scan, the maximum and the parts
+    await staff.press(teacher(), '✏️ Изменить');
+    await staff.text(teacher(), '45');
+    await staff.press(teacher(), 'ЦТ');
+    await staff.press(teacher(), 'Пропустить');
+    expect(last()).toContain('Запись изменена');
+    await staff.press(teacher(), '◀️ Назад');
+    expect(last()).toContain('<b>45/60 (75 %)</b>');
+    expect(staff.tg.sentDocuments(teacherTg).length).toBe(before + 2);
   });
 
   it('UC-30: a proposed mark is confirmed from the notification button; a second press is stale', async () => {

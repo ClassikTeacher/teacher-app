@@ -187,6 +187,8 @@ export class GradeEntriesUseCase {
     const now = this.clock.now();
     return this.txm.run(async () => {
       const entry = await this.ownEntry(actor, entryId);
+      if (entry.status !== 'confirmed')
+        throw new AppError('CONFLICT', 'Decide on the proposal first', { reason: 'not_confirmed' });
       const journal = await this.ownJournal(actor, entry.journalId);
       const teacher = await this.accounts.findById(actor.accountId);
       const merged: GradeValueInput = {
@@ -250,7 +252,8 @@ export class GradeEntriesUseCase {
     assertActive(actor);
     const now = this.clock.now();
     return this.txm.run(async () => {
-      const journal = await this.journals.findById(input.journalId);
+      // the journal row is locked so the pending limit below is counted by one proposer at a time
+      const journal = await this.journals.findById(input.journalId, { forUpdate: true });
       if (!journal) throw AppError.notFound('journal', input.journalId);
       const source = await this.proposerRole(actor, journal, input.studentId);
       if (journal.type !== 'school')

@@ -18,6 +18,7 @@ import { clip, fullName } from '../core/format.js';
 import { SECTION_NS } from '../core/sections.js';
 import { escapeHtml, renderMenu } from '../core/ui.js';
 import { entryLine, periodLabel, statsText } from './journal-format.js';
+import { SELECTED_CHILD_KEY } from '../parent-bot/sections.js';
 import { ProposeGradeFlow } from './propose-grade.flow.js';
 
 const DATE = 'dd.MM.yyyy';
@@ -97,9 +98,12 @@ export class ProgressScreen {
       if (!AppError.is(error, 'NOT_FOUND')) throw error;
       return this.root(ctx, actor, section, who);
     }
-    // 8.0: a parent sees only the selected child's journal through this screen
-    if (who.side === 'parent' && who.child && card.student.id !== who.child.id)
-      return this.root(ctx, actor, section, who);
+    // a parent opening a copied notification of another child: personCard already checked the family link,
+    // so the screen switches to that child (5.4.3 «переключение ребёнка»)
+    if (who.side === 'parent' && who.child && card.student.id !== who.child.id) {
+      ctx.session.scratch = { ...ctx.session.scratch, [SELECTED_CHILD_KEY]: card.student.id };
+      who = { side: 'parent', child: card.student };
+    }
     const kb = new InlineKeyboard();
     if (card.journal.type === 'school' && card.link.status === 'active' && card.teacher.status === 'active')
       kb.text(ctx.t('btn-propose-grade'), c('propose', journalId)).row();

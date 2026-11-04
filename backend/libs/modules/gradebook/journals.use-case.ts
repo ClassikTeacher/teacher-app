@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { PG_UNIQUE_VIOLATION } from '@shared/db/drizzle.js';
 import { TransactionManager } from '@shared/db/transaction-manager.js';
 import { AppError } from '@shared/errors/app-error.js';
 import { Clock } from '@shared/time/clock.js';
@@ -255,9 +256,16 @@ export class JournalsUseCase implements OnModuleInit, JournalsProvisioner {
       if (all.some((k) => k.name.toLowerCase() === clean.toLowerCase()))
         throw new AppError('CONFLICT', 'Such a kind already exists', { reason: 'duplicate' });
       const position = Math.max(0, ...all.map((k) => k.position)) + 10;
-      const row = await this.txm.runSavepoint(async () =>
-        this.journals.insertTestKind({ ownerId: actor.accountId, name: clean, position }),
-      );
+      let row: TestKindRow;
+      try {
+        row = await this.txm.runSavepoint(async () =>
+          this.journals.insertTestKind({ ownerId: actor.accountId, name: clean, position }),
+        );
+      } catch (error) {
+        // two parallel adds of the same name: the unique index decides, the loser gets a clean conflict
+        if ((error as { code?: string }).code !== PG_UNIQUE_VIOLATION) throw error;
+        throw new AppError('CONFLICT', 'Such a kind already exists', { reason: 'duplicate' });
+      }
       await this.audit.record({
         actorId: actor.accountId,
         actorRole: 'TEACHER',

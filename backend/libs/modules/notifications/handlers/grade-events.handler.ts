@@ -138,15 +138,20 @@ export class GradeEventsHandler implements OnModuleInit {
     if (!loaded || loaded.entry.status !== 'confirmed') return;
     const { entry, journal, teacher, student, subject } = loaded;
     if (journal.hidden || !journal.visibleToStudent) return; // JRN-04: an invisible journal stays silent
+    // a decided proposal no longer needs the teacher's buttons (quiet hours may have deferred them)
+    if (entry.source !== 'teacher') await this.notifications.cancelByPrefix(`grade.proposed:${entry.id}`);
     const now = this.clock.now();
     const local = DateTime.fromJSDate(now, { zone: student.timezone });
     const day = { from: local.startOf('day').toJSDate(), to: local.endOf('day').toJSDate() };
-    const today = await this.entries.countConfirmedCreatedBetween(
-      journal.teacherId,
-      journal.studentId,
+    // NTF-07: what was actually announced today, not what was edited today
+    const today = await this.notifications.countByPrefix(
+      `grade.added:${journal.teacherId}:`,
+      student.id,
       day.from,
       day.to,
     );
+    // JRN-04: a journal hidden from the parents gets no copies and no stand-in delivery (NTF-01, NTF-04)
+    const teacherId = journal.visibleToParent ? journal.teacherId : undefined;
     const base = {
       teacher: esc(`${teacher.firstName} ${teacher.lastName}`.trim()),
       subject: esc(subject?.name ?? '—'),
@@ -154,24 +159,32 @@ export class GradeEventsHandler implements OnModuleInit {
         { text: this.labels.t('btn-open-journal'), data: `s:progress:j:${journal.id}` },
       ],
     };
-    if (today > GRADE_DIGEST_THRESHOLD) {
+    if (today >= GRADE_DIGEST_THRESHOLD) {
       await this.notifications.schedule({
         type: 'grade.digest',
         recipientId: student.id,
         bot: 'student',
         payload: base,
         dedupeKey: `grade.digest:${journal.teacherId}:${student.id}:${local.toISODate()}`,
-        teacherId: journal.teacherId,
+        teacherId,
       });
       return;
     }
+    // «confirmed» — the teacher accepted a proposal; «auto» — accepted at once by the teacher's setting
+    const history = entry.source === 'teacher' ? [] : await this.entries.listHistory(entry.id);
+    const mode =
+      entry.source === 'teacher'
+        ? 'teacher'
+        : history.some((h) => h.action === 'confirmed')
+          ? 'confirmed'
+          : 'auto';
     await this.notifications.schedule({
       type: 'grade.added',
       recipientId: student.id,
       bot: 'student',
-      payload: { ...base, ...(await this.describe(entry, journal)), source: entry.source },
-      dedupeKey: `grade.added:${entry.id}:v${entry.version}`,
-      teacherId: journal.teacherId,
+      payload: { ...base, ...(await this.describe(entry, journal)), source: entry.source, mode },
+      dedupeKey: `grade.added:${journal.teacherId}:${entry.id}:v${entry.version}`,
+      teacherId,
     });
   }
 
@@ -220,7 +233,7 @@ export class GradeEventsHandler implements OnModuleInit {
 
   private async removed(event: DeliveredEvent): Promise<void> {
     const p = parse(entryEvent, event);
-    await this.notifications.cancelByPrefix(`grade.added:${p.entryId}:`);
+    await this.notifications.cancelByPrefix(`grade.added:${p.teacherId}:${p.entryId}:`);
     await this.notifications.cancelByPrefix(`grade.proposed:${p.entryId}`);
   }
 }

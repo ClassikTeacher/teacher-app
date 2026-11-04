@@ -341,6 +341,7 @@ export const CC_CONFIGURABLE_TYPES: readonly NotificationTypeCode[] = [
   'series.created',
   'material.granted',
   'grade.added',
+  'grade.digest',
   'report.sent',
   'homework.assigned',
   'homework.overdue',

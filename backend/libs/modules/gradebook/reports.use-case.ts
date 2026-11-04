@@ -279,7 +279,8 @@ export class ReportsUseCase {
       else cancelled.system += 1;
     }
     const hw = await this.homework.stats(link.teacherId, student.id, interval);
-    const journals = (await this.journals.listByLink(link.id)).filter((j) => !j.hidden);
+    // JRN-04: the report goes to the student (parents get a copy), so only journals the student may see
+    const journals = (await this.journals.listByLink(link.id)).filter((j) => !j.hidden && j.visibleToStudent);
     const features = await this.features.resolve(link.teacherId);
     const live = journals.filter((j) => features.get(JOURNAL_FEATURE[j.type])?.enabled);
     const entries = await this.entries.listByJournals(
