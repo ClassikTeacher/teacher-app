@@ -90,7 +90,7 @@ describe('M4-05: notification settings in the three bots and the student card', 
     expect(last(staff, tTg)).toContain('Тихие часы: 22:00–08:00');
     expect(last(staff, tTg)).toContain('Утренняя сводка: в 08:00');
     expect(last(staff, tTg)).toContain(
-      'Копии родителям по умолчанию: Отмена занятия, Перенос занятия, Массовая отмена, Итоги занятия, Новое задание, Просрочка задания, Проверка задания, Завершение занятий',
+      'Копии родителям по умолчанию: Отмена занятия, Перенос занятия, Массовая отмена, Итоги занятия, Отчёт успеваемости, Новое задание, Просрочка задания, Проверка задания, Завершение занятий',
     );
     await staff.press(anna(), '⏰ Напоминания');
     await staff.press(anna(), '☑️ за 24 ч');
@@ -155,5 +155,28 @@ describe('M4-05: notification settings in the three bots and the student card', 
     await parent.press(mama(), '🌙 Тихие часы');
     await parent.press(mama(), '☑️ Тихие часы');
     expect(parent.tg.findButton('⬜ Тихие часы', pTg)).toBeDefined();
+  });
+
+  it('M6-04: the ICS link is issued once per press from the settings of every bot; the old one stops working', async () => {
+    await staff.text(anna(), '/menu');
+    await staff.press(anna(), '⚙️ Настройки');
+    await staff.press(anna(), '📅 Календарь (ICS)');
+    expect(last(staff, tTg)).toContain('Подписка на календарь');
+    await staff.press(anna(), '🔗 Получить ссылку');
+    const first = /<code>(.+?)<\/code>/.exec(last(staff, tTg))![1]!;
+    expect(first).toMatch(/\/api\/v1\/ics\/[A-Za-z0-9_-]{43}\.ics$/);
+    await staff.press(anna(), '🔄 Перевыпустить ссылку');
+    const second = /<code>(.+?)<\/code>/.exec(last(staff, tTg))![1]!;
+    expect(second).not.toBe(first);
+    await student.text(petya(), '/menu');
+    await student.press(petya(), '⚙️ Настройки');
+    await student.press(petya(), '📅 Календарь (ICS)');
+    await student.press(petya(), '🔗 Получить ссылку');
+    expect(last(student, sTg)).toContain('/api/v1/ics/');
+    await parent.text(mama(), '/menu');
+    await parent.press(mama(), '⚙️ Настройки');
+    await parent.press(mama(), '📅 Календарь (ICS)');
+    await parent.press(mama(), '🔗 Получить ссылку');
+    expect(last(parent, pTg)).toContain('/api/v1/ics/');
   });
 });

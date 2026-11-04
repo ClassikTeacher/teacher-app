@@ -12,6 +12,8 @@ import { ContentEventsHandler } from './handlers/content-events.handler.js';
 import { FilesModule } from '@modules/files/files.module.js';
 import { HomeworkModule } from '@modules/homework/homework.module.js';
 import { HomeworkEventsHandler } from './handlers/homework-events.handler.js';
+import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
+import { GradeEventsHandler } from './handlers/grade-events.handler.js';
 import { ChannelEventsHandler } from './handlers/channel-events.handler.js';
 import { DailyDigestJob } from './digest.job.js';
 import { NotificationPrefsRepository } from './notification-prefs.repository.js';
@@ -46,6 +48,7 @@ const PROVIDERS = [
   ChannelEventsHandler,
   ContentEventsHandler,
   HomeworkEventsHandler,
+  GradeEventsHandler,
   NotificationPrefsRepository,
   NotificationSettingsUseCase,
   DailyDigestJob,
@@ -63,6 +66,7 @@ const PROVIDERS = [
     ContentModule,
     HomeworkModule,
     FilesModule,
+    GradebookModule,
   ],
   providers: PROVIDERS,
   exports: PROVIDERS,

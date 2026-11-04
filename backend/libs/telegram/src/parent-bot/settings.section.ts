@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { Actor } from '@modules/access/actor.js';
 import type { CreatedBot } from '../core/bot-factory.js';
 import type { BotContext } from '../core/context.js';
-import { type SectionModule } from '../core/sections.js';
+import { type SectionModule, sectionCb } from '../core/sections.js';
+import { IcsScreen } from '../person/ics.screen.js';
 import { NotificationEditFlow } from '../person/notification-edit.flow.js';
 import { NotificationSettingsScreen } from '../person/notification-settings.screen.js';
 import type { ParentSection } from './sections.js';
@@ -14,6 +15,7 @@ export class ParentSettingsSection implements SectionModule<ParentSection> {
 
   constructor(
     private readonly screen: NotificationSettingsScreen,
+    private readonly ics: IcsScreen,
     private readonly edit: NotificationEditFlow,
   ) {}
 
@@ -26,6 +28,8 @@ export class ParentSettingsSection implements SectionModule<ParentSection> {
   }
 
   async onCallback(ctx: BotContext, actor: Actor, action: string, args: string[]): Promise<void> {
+    const main = sectionCb(this.section, 'nmain');
+    if (await this.ics.handle(ctx, actor, this.section, action, main)) return;
     if (!(await this.screen.handle(ctx, actor, this.section, action, args, 'm:main')))
       await this.open(ctx, actor);
   }

@@ -1,0 +1,134 @@
+# Production stack on one Ubuntu server (PRODUCT-SPEC 7.6): Caddy (TLS) → api; worker; PostgreSQL, Redis, S3.
+# Variables come from `/opt/tutor-platform/.env` (see .env.prod.example); IMAGE_TAG is written there by deploy.sh.
+# Nothing but Caddy publishes ports: the databases and the API are reachable only inside the compose network.
+name: tutor-platform
+
+x-app: &app
+  image: ${IMAGE_REPOSITORY:-ghcr.io/classikteacher/teacher-app/backend}:${IMAGE_TAG:-main}
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    LOG_PRETTY: 'false'
+    DATABASE_URL: postgres://tutor:${POSTGRES_PASSWORD}@postgres:5432/tutor
+    REDIS_URL: redis://redis:6379
+    S3_ENDPOINT: http://s3:9000
+    S3_AUTO_CREATE_BUCKET: 'true'
+    # one proxy hop (Caddy) in front of the API: real client IPs for audit and rate limits
+    TRUST_PROXY_HOPS: '1'
+    API_HOST: 0.0.0.0
+    API_PORT: '3000'
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: '20m'
+      max-file: '5'
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    s3:
+      condition: service_started
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '5'
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tutor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: tutor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tutor -d tutor']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # S3-compatible storage (the app speaks only the S3 API, see DECISIONS T-04); the bucket is private
+  s3:
+    image: rustfs/rustfs:1.0.3
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - s3data:/data
+
+  api:
+    <<: *app
+    command: ['node', 'dist/apps/api/src/main.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    <<: *app
+    command: ['node', 'dist/apps/worker/src/main.js']
+
+  # one-shot: `docker compose run --rm migrate` (deploy.sh runs it before starting the new api/worker)
+  migrate:
+    <<: *app
+    command: ['node', 'dist/scripts/migrate.js']
+    restart: 'no'
+    profiles: ['tools']
+
+  # one-shot: `docker compose run --rm seed-superadmin` (prints the AuthBot link for BOOTSTRAP_SUPERADMIN_TELEGRAM_ID)
+  seed-superadmin:
+    <<: *app
+    command: ['node', 'dist/scripts/seed-superadmin.js']
+    restart: 'no'
+    profiles: ['tools']
+
+volumes:
+  pgdata:
+  redisdata:
+  s3data:
+  caddy_data:
+  caddy_config:

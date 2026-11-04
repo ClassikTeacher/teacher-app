@@ -92,6 +92,18 @@ import { ReviewFlow } from './staff-bot/assignments/review.flow.js';
 import { StudentAssignmentsSection } from './student-bot/assignments.section.js';
 import { SubmitFlow } from './student-bot/submit.flow.js';
 import { ParentAssignmentsSection } from './parent-bot/assignments.section.js';
+import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
+import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
+import { IcsScreen } from './person/ics.screen.js';
+import { ProgressScreen } from './person/progress.screen.js';
+import { ProposeGradeFlow } from './person/propose-grade.flow.js';
+import { StudentProgressSection } from './student-bot/progress.section.js';
+import { ParentProgressSection } from './parent-bot/progress.section.js';
+import { JournalsSection } from './staff-bot/journals/journals.section.js';
+import { GradeEntryFlow } from './staff-bot/journals/grade-entry.flow.js';
+import { JournalTextFlow } from './staff-bot/journals/journal-text.flow.js';
+import { ReportsSection } from './staff-bot/journals/reports.section.js';
+import { ReportFlow } from './staff-bot/journals/report.flow.js';
 
 const FLOWS = [
   OnboardingFlow,
@@ -133,6 +145,10 @@ const FLOWS = [
   CreateAssignmentFlow,
   ReviewFlow,
   SubmitFlow,
+  GradeEntryFlow,
+  JournalTextFlow,
+  ReportFlow,
+  ProposeGradeFlow,
 ];
 const SECTIONS = [
   TodaySection,
@@ -150,6 +166,8 @@ const SECTIONS = [
   FileTypesSection,
   MaterialsSection,
   AssignmentsSection,
+  JournalsSection,
+  ReportsSection,
 ];
 const STUDENT_SECTIONS = [
   StudentScheduleSection,
@@ -161,6 +179,7 @@ const STUDENT_SECTIONS = [
   StudentSettingsSection,
   StudentMaterialsSection,
   StudentAssignmentsSection,
+  StudentProgressSection,
 ];
 const PARENT_SECTIONS = [
   ChildrenSection,
@@ -169,6 +188,7 @@ const PARENT_SECTIONS = [
   RequestsSection,
   ParentSettingsSection,
   ParentAssignmentsSection,
+  ParentProgressSection,
 ];
 const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
 
@@ -182,6 +202,8 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     FilesModule,
     ContentModule,
     HomeworkModule,
+    GradebookModule,
+    IntegrationsModule,
   ],
   providers: [
     Clock,
@@ -193,6 +215,8 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     RequestsScreen,
     BookingSettingsScreen,
     NotificationSettingsScreen,
+    IcsScreen,
+    ProgressScreen,
     StudentCcScreen,
     ...SECTIONS,
     {

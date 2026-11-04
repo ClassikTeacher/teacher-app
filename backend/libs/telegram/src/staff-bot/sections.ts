@@ -10,6 +10,7 @@ export type StaffSection =
   | 'materials'
   | 'assignments'
   | 'journals'
+  | 'reports'
   | 'attention'
   | 'settings'
   | 'teachers'
@@ -30,6 +31,8 @@ export interface SectionDef {
   features?: readonly FeatureKey[];
   /** Visible when at least one of these is on (journals: any journal type or reports). */
   anyFeature?: readonly FeatureKey[];
+  /** Reachable by buttons only, not from the menu grid (reports live inside «Журналы и отчёты»). */
+  hidden?: boolean;
 }
 
 const teacher = (a: Actor): boolean => a.roles.includes('TEACHER');
@@ -48,6 +51,7 @@ export const SECTIONS: readonly SectionDef[] = [
     roles: teacher,
     anyFeature: ['journal.school', 'journal.tests', 'journal.custom', 'reports'],
   },
+  { key: 'reports', parent: 'main', roles: teacher, features: ['reports'], hidden: true },
   { key: 'attention', parent: 'main', roles: teacher },
   { key: 'settings', parent: 'main', roles: teacher },
   { key: 'teachers', parent: 'admin', roles: isAdmin },

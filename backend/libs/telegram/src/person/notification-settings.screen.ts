@@ -55,7 +55,10 @@ export class NotificationSettingsScreen {
         c('nvia'),
       ).row();
     }
-    kb.text(ctx.t('btn-notif-mutes'), c('nmute')).row().text(ctx.t('btn-back'), backCb);
+    kb.text(ctx.t('btn-notif-mutes'), c('nmute')).row();
+    // 5.14.2 (M6-04): the calendar subscription lives next to the notification settings of students and parents
+    if (role !== 'teacher') kb.text(ctx.t('btn-ics'), c('ics')).row();
+    kb.text(ctx.t('btn-back'), backCb);
     const text =
       role === 'teacher'
         ? ctx.t('notif-settings-teacher', {

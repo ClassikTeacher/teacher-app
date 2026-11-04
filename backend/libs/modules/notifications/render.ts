@@ -19,8 +19,8 @@ export class NotificationRenderer {
   }
 
   /** Plain lookup for labels (buttons) that producers attach to payloads. */
-  t(key: string, locale = 'ru'): string {
-    return this.i18n.t(locale, key);
+  t(key: string, locale = 'ru', vars?: Record<string, string | number>): string {
+    return this.i18n.t(locale, key, vars);
   }
 
   render(notification: Pick<NotificationRow, 'typeCode' | 'payload'>, locale = 'ru'): string | null {

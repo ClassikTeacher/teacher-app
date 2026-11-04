@@ -30,6 +30,11 @@ import { MeController } from './me/me.controller.js';
 import { StudentsController } from './students/students.controller.js';
 import { ContentController } from './content/content.controller.js';
 import { HomeworkController } from './homework/homework.controller.js';
+import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
+import { GradebookController } from './gradebook/gradebook.controller.js';
+import { ReportsController } from './gradebook/reports.controller.js';
+import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
+import { IcsController } from './integrations/ics.controller.js';
 
 @Module({
   imports: [
@@ -45,6 +50,8 @@ import { HomeworkController } from './homework/homework.controller.js';
     FilesModule,
     ContentModule,
     HomeworkModule,
+    GradebookModule,
+    IntegrationsModule,
     ScheduleModule,
     TelegramModule,
   ],
@@ -65,6 +72,9 @@ import { HomeworkController } from './homework/homework.controller.js';
     RequestsController,
     ContentController,
     HomeworkController,
+    GradebookController,
+    ReportsController,
+    IcsController,
   ],
   providers: [Clock],
 })

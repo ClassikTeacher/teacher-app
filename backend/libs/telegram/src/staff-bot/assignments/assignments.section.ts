@@ -121,9 +121,6 @@ export class AssignmentsSection implements StaffSectionModule {
         if (!isUuid(id)) return this.queue(ctx, actor);
         await say(ctx, ctx.t('submission-files-purged', { count: await this.review.purgeFiles(actor, id) }));
         return this.submission(ctx, actor, id);
-      case 'grade': // M6-01 wires the gradebook; the button explains until then
-        await ctx.answerCallbackQuery({ text: ctx.t('grade-soon') }).catch(() => undefined);
-        return;
       default:
         return this.open(ctx, actor);
     }
@@ -219,7 +216,7 @@ export class AssignmentsSection implements StaffSectionModule {
       kb.text(ctx.t('btn-accept'), sectionCb('assignments', 'accept', c.submission.id))
         .text(ctx.t('btn-return'), sectionCb('assignments', 'return', c.submission.id))
         .row()
-        .text(ctx.t('btn-grade'), sectionCb('assignments', 'grade', c.submission.id));
+        .text(ctx.t('btn-grade'), sectionCb('journals', 'grade', c.submission.id));
     }
     const live = c.files.filter((f) => f.status !== 'deleted');
     if (live.length > 0)

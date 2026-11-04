@@ -369,7 +369,11 @@ export class TodaySection implements StaffSectionModule {
         .row();
     if (view.lesson.status !== 'cancelled') {
       // 5.9.3 «Через занятие» (M5-02); the materials section itself checks the feature
-      kb.text(ctx.t('btn-lesson-materials'), sectionCb('materials', 'lesson', view.lesson.id)).row();
+      kb.text(ctx.t('btn-lesson-materials'), sectionCb('materials', 'lesson', view.lesson.id));
+      // 5.6.4 «отметки» (M6-01): the journals section checks the features itself
+      if (view.lesson.status === 'completed')
+        kb.text(ctx.t('btn-lesson-grades'), sectionCb('journals', 'lesson', view.lesson.id));
+      kb.row();
       kb.text(ctx.t('btn-repeat-next-week'), sectionCb('today', 'repeat', view.lesson.id));
       if (!view.lesson.seriesId)
         kb.text(ctx.t('btn-make-regular'), sectionCb('today', 'regular', view.lesson.id));

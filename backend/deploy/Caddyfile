@@ -1,0 +1,22 @@
+# Reverse proxy with automatic Let's Encrypt certificates (DOMAIN and ACME_EMAIL come from .env).
+# Telegram webhooks require HTTPS on 443 (4.1); Caddy keeps the certificate renewed.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# the API sets x-correlation-id itself; Caddy adds the real client address for TRUST_PROXY_HOPS=1
+	reverse_proxy api:3000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

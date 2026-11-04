@@ -28,7 +28,7 @@ export function buildMainMenu(ctx: BotContext, actor: Actor, features: ResolvedF
   const allowed = allowedSections(actor, features);
   const keyboard = grid(
     ctx,
-    allowed.filter((s) => s.parent === 'main'),
+    allowed.filter((s) => s.parent === 'main' && !s.hidden),
   );
   if (allowed.some((s) => s.parent === 'admin'))
     keyboard.text(ctx.t('menu-admin-section'), menuCb('admin')).row();

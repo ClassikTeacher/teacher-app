@@ -249,15 +249,13 @@ describe('5.7.6: automatic cancellations (M4-06)', () => {
     await groups.addMember(anna(), groupId, petyaId);
     await groups.addMember(anna(), groupId, mashaId);
     const g = await lessonAt(annaId, '2026-11-21T13:00:00Z', { groupId });
-    await ctx
-      .get(SeriesUseCase)
-      .create(anna(), {
-        target: { studentId: petyaId },
-        weekdays: [1],
-        startMin: 10 * 60,
-        durationMin: 60,
-        startsOn: '2026-11-23',
-      });
+    await ctx.get(SeriesUseCase).create(anna(), {
+      target: { studentId: petyaId },
+      weekdays: [1],
+      startMin: 10 * 60,
+      durationMin: 60,
+      startsOn: '2026-11-23',
+    });
     await ctx.get(BlockAccountUseCase).block(actor(adminId, 'ADMIN'), petyaId, {
       reason: 'x',
       lessonsPolicy: 'cancel',

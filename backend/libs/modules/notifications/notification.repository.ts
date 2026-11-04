@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
 import { TransactionManager } from '@shared/db/transaction-manager.js';
 import { newId } from '@shared/ids/index.js';
 import type { Bot } from '@modules/identity/schema.js';
@@ -43,6 +43,25 @@ export class NotificationRepository {
   }
 
   /** Cheap existence check by dedupe key (the digest job skips the heavy queries once it is sent). */
+  /** Rows of a recipient whose key starts with `prefix` and that are due in `[from, to]`, not cancelled (NTF-07 digests). */
+  async countByPrefixForRecipient(
+    prefix: string,
+    recipientId: string,
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    return this.txm.db.$count(
+      notification,
+      and(
+        eq(notification.recipientId, recipientId),
+        sql`starts_with(${notification.dedupeKey}, ${prefix})`,
+        gte(notification.dueAt, from),
+        lte(notification.dueAt, to),
+        ne(notification.status, 'cancelled'),
+      ),
+    );
+  }
+
   async existsByKey(dedupeKey: string): Promise<boolean> {
     const rows = await this.txm.db
       .select({ id: notification.id })
