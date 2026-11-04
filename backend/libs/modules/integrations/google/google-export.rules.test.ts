@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LessonView } from '@modules/schedule/lessons/lessons.query.js';
-import { eventOf, planExport, signatureOf } from './google-export.rules.js';
+import { eventIdFor, eventOf, planExport, signatureOf } from './google-export.rules.js';
 import { googleAuthUrl, hasRequiredScopes } from './google-oauth.js';
 
 function view(id: string, overrides: Partial<LessonView['lesson']> = {}): LessonView {
@@ -34,36 +34,47 @@ describe('Google export plan (5.14.1)', () => {
     expect(inPerson.description).toBe('Очно');
   });
 
-  it('inserts new, updates changed, deletes gone, skips unchanged', () => {
+  it('inserts new (deterministic id), updates changed, deletes gone, keeps out-of-window history, skips unchanged', () => {
     const a = view('a');
     const b = view('b');
     const bSig = signatureOf(eventOf(b));
+    const gone = new Set(['c']);
     const ops = planExport(
+      'conn',
       [a, b],
       [
         { lessonId: 'b', googleEventId: 'evB', signature: 'stale', deleted: false },
         { lessonId: 'c', googleEventId: 'evC', signature: 'x', deleted: false },
         { lessonId: 'd', googleEventId: 'evD', signature: 'x', deleted: true },
+        // a completed lesson older than the window: not live, not gone → stays in the calendar
+        { lessonId: 'old', googleEventId: 'evOld', signature: 'x', deleted: false },
       ],
+      (id) => gone.has(id),
     );
     expect(ops.map((o) => `${o.op}:${o.lessonId}`)).toEqual(['insert:a', 'update:b', 'delete:c']);
+    expect(ops[0]).toMatchObject({ googleEventId: eventIdFor('conn', 'a') });
+    expect(eventIdFor('conn', 'a')).toMatch(/^[0-9a-v]{64}$/); // base32hex alphabet, Google's rule for ids
     expect(ops[1]).toMatchObject({ googleEventId: 'evB', signature: bSig });
     // second pass with fresh mappings: nothing to do
     expect(
       planExport(
+        'conn',
         [a, b],
         [
           { lessonId: 'a', googleEventId: 'evA', signature: signatureOf(eventOf(a)), deleted: false },
           { lessonId: 'b', googleEventId: 'evB', signature: bSig, deleted: false },
         ],
+        () => true,
       ),
     ).toEqual([]);
   });
 
   it('re-inserts a lesson whose event was deleted earlier (restored lesson)', () => {
     const ops = planExport(
+      'conn',
       [view('a')],
       [{ lessonId: 'a', googleEventId: 'old', signature: 's', deleted: true }],
+      () => true,
     );
     expect(ops).toHaveLength(1);
     expect(ops[0]!.op).toBe('insert');

@@ -1,6 +1,7 @@
 import type { Interval } from '../libs/modules/schedule/schema.js';
 import {
   type GoogleApi,
+  GoogleApiError,
   GoogleAuthError,
   type GoogleEventInput,
   type GoogleTokens,
@@ -29,7 +30,7 @@ export class FakeGoogleApi implements GoogleApi {
   readonly calls: string[] = [];
   /** Codes issued by the "consent screen": code → account email and scopes. */
   readonly codes = new Map<string, { email: string; scope?: string; refreshToken?: string | null }>();
-  /** Throw this from every network call (Google down) while set. */
+  /** Every network call fails with a GoogleApiError carrying this message (Google down) while set. */
   outage: Error | null = null;
   private seq = 0;
   private readonly refreshTokens = new Map<string, string>();
@@ -81,12 +82,16 @@ export class FakeGoogleApi implements GoogleApi {
     return Promise.resolve();
   }
 
-  insertEvent(_accessToken: string, calendarId: string, event: GoogleEventInput): Promise<string> {
-    this.calls.push('insertEvent');
+  insertEvent(
+    _accessToken: string,
+    calendarId: string,
+    eventId: string,
+    event: GoogleEventInput,
+  ): Promise<void> {
+    this.calls.push(this.calendar(calendarId).events.has(eventId) ? 'insertEvent:exists' : 'insertEvent');
     this.check();
-    const id = `ev${++this.seq}`;
-    this.calendar(calendarId).events.set(id, event);
-    return Promise.resolve(id);
+    this.calendar(calendarId).events.set(eventId, event);
+    return Promise.resolve();
   }
 
   updateEvent(
@@ -134,6 +139,6 @@ export class FakeGoogleApi implements GoogleApi {
   }
 
   private check(): void {
-    if (this.outage) throw this.outage;
+    if (this.outage) throw new GoogleApiError(this.outage.message, 503);
   }
 }

@@ -87,15 +87,25 @@ export class GoogleApiHttp implements GoogleApi {
     );
   }
 
-  async insertEvent(accessToken: string, calendarId: string, event: GoogleEventInput): Promise<string> {
-    const body = (await this.request(
-      'POST',
-      `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
-      accessToken,
-      toGoogleEvent(event),
-    )) as { id?: string };
-    if (!body.id) throw new GoogleApiError('event without id', null);
-    return body.id;
+  async insertEvent(
+    accessToken: string,
+    calendarId: string,
+    eventId: string,
+    event: GoogleEventInput,
+  ): Promise<void> {
+    try {
+      await this.request(
+        'POST',
+        `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
+        accessToken,
+        { id: eventId, ...toGoogleEvent(event) },
+      );
+    } catch (error) {
+      // 409: the id exists from an earlier run whose mapping was lost — the event is ours, overwrite it
+      if (error instanceof GoogleApiError && error.status === 409)
+        await this.updateEvent(accessToken, calendarId, eventId, event);
+      else throw error;
+    }
   }
 
   async updateEvent(
@@ -161,11 +171,12 @@ export class GoogleApiHttp implements GoogleApi {
     }
     const body = (await response.json().catch(() => ({}))) as TokenResponse;
     if (!response.ok) {
-      // invalid_grant: revoked consent, expired or reused code, password change — the teacher reconnects
-      if (response.status === 400 || response.status === 401)
-        throw new GoogleAuthError(`${body.error ?? response.status}: ${body.error_description ?? ''}`.trim());
+      // only invalid_grant is the teacher's grant (revoked consent, expired or reused code, password change);
+      // invalid_client & co. are this installation's misconfiguration and must not park connections in `error`
+      if (body.error === 'invalid_grant')
+        throw new GoogleAuthError(`invalid_grant: ${body.error_description ?? ''}`.trim());
       throw new GoogleApiError(
-        `token endpoint ${response.status}: ${body.error ?? ''}`.trim(),
+        `token endpoint ${response.status}: ${body.error ?? ''} ${body.error_description ?? ''}`.trim(),
         response.status,
       );
     }

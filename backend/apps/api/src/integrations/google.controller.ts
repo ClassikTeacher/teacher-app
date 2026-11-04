@@ -103,11 +103,12 @@ export class GoogleController {
       return;
     }
     try {
-      const { email } = await this.google.completeOAuth(q.state, q.code);
+      const { email, accountName } = await this.google.completeOAuth(q.state, q.code);
+      // names the platform account so a consent link opened by someone else is noticed (see T-39)
       await send(
         200,
         'Google Calendar подключён',
-        `Аккаунт ${email ?? 'Google'} связан с платформой. Занятия появятся в календаре «Занятия (Tutor Platform)» в течение минуты. Эту вкладку можно закрыть.`,
+        `Google-аккаунт ${email ?? ''} связан с аккаунтом «${accountName}» на платформе. Занятия появятся в календаре «Занятия (Tutor Platform)» в течение минуты. Если это не вы — отключите интеграцию в боте: Настройки → Google Calendar. Эту вкладку можно закрыть.`,
       );
     } catch (error) {
       if (AppError.is(error, 'NOT_FOUND')) {
@@ -120,6 +121,14 @@ export class GoogleController {
       }
       if (AppError.is(error, 'FEATURE_DISABLED')) {
         await send(403, 'Функция отключена', 'Интеграция с Google Calendar отключена администратором.');
+        return;
+      }
+      if (AppError.is(error, 'CONFLICT') && error.details?.['reason'] === 'google_error') {
+        await send(
+          502,
+          'Google временно недоступен',
+          'Google не ответил или отклонил запрос. Подключение не завершено — начните заново из бота через несколько минут.',
+        );
         return;
       }
       if (AppError.is(error, 'VALIDATION_ERROR') || AppError.is(error, 'CONFLICT')) {

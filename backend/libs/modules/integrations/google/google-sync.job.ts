@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Clock, MINUTE_MS } from '@shared/time/clock.js';
+import { Clock, DAY_MS, MINUTE_MS } from '@shared/time/clock.js';
 import { GoogleCalendarRepository } from './google-calendar.repository.js';
 import { GoogleSyncService, type SyncReport } from './google-sync.service.js';
 
@@ -19,7 +19,9 @@ export class GoogleSyncJob {
   ) {}
 
   async run(): Promise<SyncReport[]> {
-    const due = await this.repo.listDue(this.clock.now(), GOOGLE_SYNC_INTERVAL_MS, BATCH);
+    const now = this.clock.now();
+    await this.repo.deleteExpiredStates(new Date(now.getTime() - DAY_MS));
+    const due = await this.repo.listDue(now, GOOGLE_SYNC_INTERVAL_MS, BATCH);
     const reports: SyncReport[] = [];
     for (const row of due) {
       const report = await this.sync.sync(row.id);

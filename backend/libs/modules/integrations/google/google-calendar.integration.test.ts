@@ -116,7 +116,11 @@ describe('E2-05 Google Calendar (5.14.1): OAuth, export of lessons, import of bu
     google.codes.set('code-1', { email: 'anna@gmail.com' });
     await expect(useCase.completeOAuth('not-a-state', 'code-1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
     const result = await useCase.completeOAuth(state, 'code-1');
-    expect(result).toEqual({ accountId: teacherId, email: 'anna@gmail.com' });
+    expect(result).toMatchObject({
+      accountId: teacherId,
+      email: 'anna@gmail.com',
+      accountName: 'Анна Петрова',
+    });
     // the state is spent
     await expect(useCase.completeOAuth(state, 'code-1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
     const row = await connection();
@@ -306,17 +310,43 @@ describe('E2-05 Google Calendar (5.14.1): OAuth, export of lessons, import of bu
     expect(rows.every((r) => r.status === 'revoked' && r.revokedAt !== null)).toBe(true);
     expect(google.calendars.has(cal)).toBe(false);
     expect(google.revoked.size).toBeGreaterThanOrEqual(2);
+    // the sync job never touches a revoked connection, even when asked
+    expect(await job.run()).toHaveLength(0);
     expect(await busyRows()).toHaveLength(0);
     expect(await useCase.status(teacher())).toEqual({ configured: true, connected: false });
     await expect(useCase.disconnect(teacher())).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('reconnecting with a valid token removes the previous app calendar', async () => {
+  it('reconnecting with the same Google account removes the previous app calendar but keeps the grant', async () => {
     const first = await connect('code-3');
-    const second = await connect('code-4');
+    const revokedBefore = google.revoked.size;
+    const tokensBefore = google.issuedRefreshTokens().length;
+    const second = await connect('code-4'); // same e-mail: one grant per user × client, so no revoke
     expect(second).not.toBe(first);
     expect(google.calendars.has(first)).toBe(false);
     expect(google.calendars.has(second)).toBe(true);
+    expect(google.revoked.size).toBe(revokedBefore);
+    expect(google.issuedRefreshTokens().length).toBe(tokensBefore + 1);
+    // a different Google account: the previous grant is revoked and its calendar removed with the old token
+    const third = await connect('code-5', 'other@gmail.com');
+    expect(google.calendars.has(second)).toBe(false);
+    expect(google.calendars.has(third)).toBe(true);
+    expect(google.revoked.size).toBe(revokedBefore + 1);
+  });
+
+  it('a Google failure after the state was spent revokes the issued grant and reports google_error', async () => {
+    const url = await useCase.connectUrl(teacher());
+    google.codes.set('code-6', { email: 'anna@gmail.com' });
+    google.outage = new Error('503');
+    const issued = google.issuedRefreshTokens().length;
+    await expect(useCase.completeOAuth(stateOf(url), 'code-6')).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'google_error' },
+    });
+    google.outage = null;
+    expect(google.revoked.has(google.issuedRefreshTokens()[issued]!)).toBe(true); // the token issued for code-6
+    await expect(useCase.completeOAuth(stateOf(url), 'code-6')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await connection()).googleEmail).toBe('other@gmail.com'); // the live connection is untouched
   });
 
   it('runs one sync of a connection at a time (advisory lock)', async () => {

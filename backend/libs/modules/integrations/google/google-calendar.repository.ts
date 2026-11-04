@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { TransactionManager } from '@shared/db/transaction-manager.js';
 import { newId } from '@shared/ids/index.js';
 import {
@@ -196,6 +196,15 @@ export class GoogleCalendarRepository {
 
   async markStateUsed(id: string, at: Date): Promise<void> {
     await this.txm.db.update(googleOauthState).set({ usedAt: at }).where(eq(googleOauthState.id, id));
+  }
+
+  /** Housekeeping: spent and expired states are useless after a day. */
+  async deleteExpiredStates(before: Date): Promise<number> {
+    const rows = await this.txm.db
+      .delete(googleOauthState)
+      .where(lt(googleOauthState.expiresAt, before))
+      .returning({ id: googleOauthState.id });
+    return rows.length;
   }
 
   /** Transaction-scoped advisory lock: one sync of a connection at a time. */

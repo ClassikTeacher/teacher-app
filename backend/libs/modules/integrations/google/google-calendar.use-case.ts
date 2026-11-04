@@ -10,10 +10,12 @@ import { FeatureService } from '@modules/access/features/feature.service.js';
 import { AuditService } from '@modules/audit/audit.service.js';
 import { AccountRepository } from '@modules/identity/account.repository.js';
 import { NotificationService } from '@modules/notifications/notification.service.js';
+import { NotificationRenderer } from '@modules/notifications/render.js';
+import { BUTTONS_PAYLOAD_KEY } from '@modules/notifications/types.js';
 import { ExternalBusyRepository } from '@modules/schedule/occupancy/external-busy.repository.js';
 import type { GoogleConnectionRow } from '../schema.js';
-import { GOOGLE_API, type GoogleApi, GoogleAuthError } from './google-api.js';
-import { GoogleCalendarRepository } from './google-calendar.repository.js';
+import { GOOGLE_API, type GoogleApi, GoogleApiError, GoogleAuthError } from './google-api.js';
+import { type ConnectionPatch, GoogleCalendarRepository } from './google-calendar.repository.js';
 import {
   GOOGLE_STATE,
   GOOGLE_STATE_TTL_MS,
@@ -59,6 +61,7 @@ export interface GoogleSettingsPatch {
 @Injectable()
 export class GoogleCalendarUseCase {
   private readonly logger = new Logger(GoogleCalendarUseCase.name);
+  private readonly labels = new NotificationRenderer();
   private readonly box: SecretBox | null;
 
   constructor(
@@ -138,9 +141,14 @@ export class GoogleCalendarUseCase {
   /**
    * `GET /integrations/google/callback`: exchanges the code, creates the app calendar, stores the sealed tokens.
    * Public endpoint — the state is the only credential, so an unknown, expired or used one is NOT_FOUND
-   * (nothing more is revealed). Reconnecting replaces the previous connection of the account.
+   * (nothing more is revealed). Google failing after the state was spent is `CONFLICT` with
+   * `reason: google_error` (the page says «start again»); a refresh token already issued is revoked then.
+   * Reconnecting replaces the previous connection of the account; Google is cleaned up after the commit.
    */
-  async completeOAuth(state: string, code: string): Promise<{ accountId: string; email: string | null }> {
+  async completeOAuth(
+    state: string,
+    code: string,
+  ): Promise<{ accountId: string; email: string | null; accountName: string }> {
     if (!GOOGLE_STATE.test(state) || !code) throw AppError.notFound('state');
     this.requireConfig();
     const now = this.clock.now();
@@ -153,39 +161,60 @@ export class GoogleCalendarUseCase {
     const account = await this.accounts.findById(pending.accountId);
     if (!account || account.status !== 'active') throw AppError.notFound('state');
     await this.features.assertEnabled(account.id, 'calendar.google');
-    const tokens = await this.google.exchangeCode(code, googleRedirectUri(this.env.PUBLIC_BASE_URL));
-    if (!tokens.refreshToken)
-      throw new AppError(
-        'CONFLICT',
-        'Google did not issue a refresh token: revoke the app access and retry',
-        {
-          reason: 'no_refresh_token',
-        },
-      );
-    if (!hasRequiredScopes(tokens.scope)) {
-      await this.google.revokeToken(tokens.refreshToken).catch(() => undefined);
-      throw new AppError('VALIDATION_ERROR', 'Not all calendar permissions were granted', {
-        reason: 'scopes_missing',
-      });
+    const redirectUri = googleRedirectUri(this.env.PUBLIC_BASE_URL);
+    let tokens;
+    let calendarId: string;
+    try {
+      tokens = await this.google.exchangeCode(code, redirectUri);
+      if (!tokens.refreshToken)
+        throw new AppError(
+          'CONFLICT',
+          'Google did not issue a refresh token: revoke the app access and retry',
+          {
+            reason: 'no_refresh_token',
+          },
+        );
+      if (!hasRequiredScopes(tokens.scope)) {
+        await this.google.revokeToken(tokens.refreshToken).catch(() => undefined);
+        throw new AppError('VALIDATION_ERROR', 'Not all calendar permissions were granted', {
+          reason: 'scopes_missing',
+        });
+      }
+      calendarId = await this.google.createCalendar(tokens.accessToken, APP_CALENDAR_NAME, account.timezone);
+    } catch (error) {
+      if (error instanceof GoogleAuthError || error instanceof GoogleApiError) {
+        // the grant may already exist in the teacher's Google account: do not leave it dangling
+        if (tokens?.refreshToken) await this.google.revokeToken(tokens.refreshToken).catch(() => undefined);
+        this.logger.warn({ err: error, account: account.id }, 'google oauth callback failed');
+        throw new AppError('CONFLICT', 'Google is unavailable', { reason: 'google_error' });
+      }
+      throw error;
     }
-    const calendarId = await this.google.createCalendar(
-      tokens.accessToken,
-      APP_CALENDAR_NAME,
-      account.timezone,
-    );
     const box = this.box!;
+    const refreshToken = tokens.refreshToken;
+    const accessToken = tokens.accessToken;
+    const email = tokens.email;
+    const expiresAt = new Date(now.getTime() + tokens.expiresIn * 1000);
     await this.txm.run(async () => {
       const previous = await this.repo.findLive(account.id, { forUpdate: true });
       if (previous) {
         await this.repo.update(previous.id, { revokedAt: now, status: 'revoked' });
-        await this.teardown(previous, { deleteCalendar: true });
+        await this.externalBusy.clear(account.id, 'google');
+        // the same Google account again: revoking the old token would kill the new grant too (one grant per
+        // user × client), so the old calendar is removed with the new token and the old token just expires
+        const sameAccount = email !== null && previous.googleEmail === email;
+        await this.txm.afterCommit(() =>
+          sameAccount
+            ? this.deleteCalendarWith(accessToken, previous.calendarId, previous.id)
+            : this.teardown(previous, { deleteCalendar: true }),
+        );
       }
       const row = await this.repo.insertConnection({
         accountId: account.id,
-        googleEmail: tokens.email,
-        refreshTokenEnc: box.seal(tokens.refreshToken!),
-        accessTokenEnc: box.seal(tokens.accessToken),
-        accessTokenExpiresAt: new Date(now.getTime() + tokens.expiresIn * 1000),
+        googleEmail: email,
+        refreshTokenEnc: box.seal(refreshToken),
+        accessTokenEnc: box.seal(accessToken),
+        accessTokenExpiresAt: expiresAt,
       });
       await this.repo.update(row.id, { calendarId, exportRequestedAt: now });
       await this.audit.record({
@@ -194,17 +223,26 @@ export class GoogleCalendarUseCase {
         action: 'google.connected',
         entityType: 'google_calendar_connection',
         entityId: row.id,
-        after: { email: tokens.email, replaced: previous?.id ?? null },
+        after: { email, replaced: previous?.id ?? null },
         source: 'web',
       });
+      // the «Это не я» button covers the residual risk of a consent link opened by someone else (T-14)
       await this.notifications.schedule({
         type: 'google.connected',
         recipientId: account.id,
-        payload: { email: tokens.email ? esc(tokens.email) : '—', calendar: esc(APP_CALENDAR_NAME) },
+        payload: {
+          email: email ? esc(email) : '—',
+          calendar: esc(APP_CALENDAR_NAME),
+          [BUTTONS_PAYLOAD_KEY]: [{ text: this.labels.t('btn-google-not-me'), data: 's:settings:gcaloff' }],
+        },
         dedupeKey: `google.connected:${row.id}`,
       });
     });
-    return { accountId: account.id, email: tokens.email };
+    return {
+      accountId: account.id,
+      email,
+      accountName: `${account.firstName} ${account.lastName ?? ''}`.trim(),
+    };
   }
 
   /** «Отключить»: revokes the token, removes the app calendar, forgets the imported busy time (5.14.1). */
@@ -216,7 +254,8 @@ export class GoogleCalendarUseCase {
       const row = await this.repo.findLive(actor.accountId, { forUpdate: true });
       if (!row) throw AppError.notFound('google connection');
       await this.repo.update(row.id, { revokedAt: now, status: 'revoked' });
-      await this.teardown(row, { deleteCalendar: true });
+      await this.externalBusy.clear(actor.accountId, 'google');
+      await this.txm.afterCommit(() => this.teardown(row, { deleteCalendar: true }));
       await this.audit.record({
         actorId: actor.accountId,
         actorRole: primaryRole(actor),
@@ -292,8 +331,13 @@ export class GoogleCalendarUseCase {
 
   // --- used by the sync service -------------------------------------------------------------------
 
-  /** A valid access token of the connection, refreshed and re-sealed when it is about to expire. */
-  async accessTokenOf(row: GoogleConnectionRow): Promise<string> {
+  /**
+   * A valid access token of the connection; when the cached one is about to expire it is refreshed and the
+   * sealed replacement is returned as a patch for the caller to write (no row lock while Google is called).
+   */
+  async accessTokenOf(
+    row: GoogleConnectionRow,
+  ): Promise<{ accessToken: string; refreshed: ConnectionPatch | null }> {
     const box = this.requireBox();
     const now = this.clock.now();
     if (
@@ -301,19 +345,23 @@ export class GoogleCalendarUseCase {
       row.accessTokenExpiresAt &&
       row.accessTokenExpiresAt.getTime() - now.getTime() > 60_000
     )
-      return box.open(row.accessTokenEnc);
+      return { accessToken: box.open(row.accessTokenEnc), refreshed: null };
     const fresh = await this.google.refreshAccessToken(box.open(row.refreshTokenEnc));
-    await this.repo.update(row.id, {
-      accessTokenEnc: box.seal(fresh.accessToken),
-      accessTokenExpiresAt: new Date(now.getTime() + fresh.expiresIn * 1000),
-    });
-    return fresh.accessToken;
+    return {
+      accessToken: fresh.accessToken,
+      refreshed: {
+        accessTokenEnc: box.seal(fresh.accessToken),
+        accessTokenExpiresAt: new Date(now.getTime() + fresh.expiresIn * 1000),
+      },
+    };
   }
 
   /** Google rejected the credentials: the connection waits for the teacher to reconnect (one notification). */
   async markAuthFailed(row: GoogleConnectionRow, error: GoogleAuthError): Promise<void> {
     const now = this.clock.now();
     await this.txm.run(async () => {
+      const fresh = await this.repo.findById(row.id, { forUpdate: true });
+      if (!fresh || fresh.revokedAt !== null || fresh.status !== 'active') return; // disconnected meanwhile
       await this.repo.update(row.id, { status: 'error', lastError: error.message.slice(0, 500) });
       await this.externalBusy.clear(row.accountId, 'google');
       await this.notifications.schedule({
@@ -347,9 +395,24 @@ export class GoogleCalendarUseCase {
     return this.box;
   }
 
-  /** Best-effort cleanup in Google; local state is dropped regardless. */
+  private async deleteCalendarWith(
+    accessToken: string,
+    calendarId: string | null,
+    connectionId: string,
+  ): Promise<void> {
+    if (!calendarId) return;
+    try {
+      await this.google.deleteCalendar(accessToken, calendarId);
+    } catch (error) {
+      this.logger.warn(
+        { err: error, connection: connectionId },
+        'could not delete the previous app calendar',
+      );
+    }
+  }
+
+  /** Best-effort cleanup in Google, run after the commit that revoked the row (nothing is locked meanwhile). */
   private async teardown(row: GoogleConnectionRow, options: { deleteCalendar: boolean }): Promise<void> {
-    await this.externalBusy.clear(row.accountId, 'google');
     if (!this.box) return;
     let refresh: string;
     try {

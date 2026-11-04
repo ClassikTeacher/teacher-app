@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InlineKeyboard } from 'grammy';
 import { DateTime } from 'luxon';
 import { AppError } from '@shared/errors/app-error.js';
-import { Clock } from '@shared/time/clock.js';
+import { Clock, MINUTE_MS } from '@shared/time/clock.js';
 import { TeacherProfileRepository } from '@modules/people/teacher-profile.repository.js';
 import { LessonSlotsQuery } from '@modules/schedule/lessons/lesson-slots.query.js';
 import { LessonsQuery } from '@modules/schedule/lessons/lessons.query.js';
+import { ExternalBusyRepository } from '@modules/schedule/occupancy/external-busy.repository.js';
 import {
   MAX_RESCHEDULE_COMMENT_LENGTH,
   RescheduleLessonUseCase,
@@ -56,6 +57,7 @@ export class RescheduleLessonFlow extends Flow<RescheduleData> {
     private readonly lessons: LessonsQuery,
     private readonly slots: LessonSlotsQuery,
     private readonly profiles: TeacherProfileRepository,
+    private readonly externalBusy: ExternalBusyRepository,
     private readonly clock: Clock,
   ) {
     super();
@@ -248,9 +250,18 @@ export class RescheduleLessonFlow extends Flow<RescheduleData> {
       if (isTerminalFlowError(error)) ctx.session.flow = undefined;
       throw error;
     }
+    // 5.5.2 soft block: moving onto an event of the external calendar is allowed but flagged
+    const clash =
+      (
+        await this.externalBusy.overlapping(ctx.actor!.actor.accountId, {
+          start: startsAt,
+          end: new Date(startsAt.getTime() + d.durationMin * MINUTE_MS),
+        })
+      ).length > 0;
     await renderMenu(
       ctx,
-      ctx.t('move-done', { to: `${fmtDayOf(startsAt, zone)} ${fmtTime(startsAt, zone)}` }),
+      ctx.t('move-done', { to: `${fmtDayOf(startsAt, zone)} ${fmtTime(startsAt, zone)}` }) +
+        (clash ? `\n\n${ctx.t('lesson-external-busy-warning')}` : ''),
       this.back(ctx, d),
     );
   }

@@ -28,7 +28,7 @@ export interface GoogleEventInput {
   extendedPrivate: Record<string, string>;
 }
 
-/** Google refused the credentials (`invalid_grant`, 401): the teacher has to connect again. */
+/** Google refused the grant itself (`invalid_grant`, or 401 on an API call): the teacher has to connect again. */
 export class GoogleAuthError extends Error {
   constructor(message: string) {
     super(message);
@@ -55,7 +55,13 @@ export interface GoogleApi {
   revokeToken(token: string): Promise<void>;
   createCalendar(accessToken: string, summary: string, timeZone: string): Promise<string>;
   deleteCalendar(accessToken: string, calendarId: string): Promise<void>;
-  insertEvent(accessToken: string, calendarId: string, event: GoogleEventInput): Promise<string>;
+  /** Creates the event under the client-chosen `eventId` (base32hex); an id that already exists is updated. */
+  insertEvent(
+    accessToken: string,
+    calendarId: string,
+    eventId: string,
+    event: GoogleEventInput,
+  ): Promise<void>;
   updateEvent(
     accessToken: string,
     calendarId: string,

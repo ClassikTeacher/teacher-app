@@ -49,6 +49,14 @@ export function signatureOf(event: GoogleEventInput): string {
     .slice(0, 32);
 }
 
+/**
+ * The Google event id of a lesson in a connection: sha256 hex is valid base32hex (0-9, a-v), so a sync that
+ * crashed between the insert and the mapping re-creates nothing — the next insert hits the same id.
+ */
+export function eventIdFor(connectionId: string, lessonId: string): string {
+  return createHash('sha256').update(`${connectionId}:${lessonId}`).digest('hex');
+}
+
 export interface ExportMapping {
   lessonId: string;
   googleEventId: string;
@@ -57,16 +65,22 @@ export interface ExportMapping {
 }
 
 export type ExportOp =
-  | { op: 'insert'; lessonId: string; event: GoogleEventInput; signature: string }
+  | { op: 'insert'; lessonId: string; googleEventId: string; event: GoogleEventInput; signature: string }
   | { op: 'update'; lessonId: string; googleEventId: string; event: GoogleEventInput; signature: string }
   | { op: 'delete'; lessonId: string; googleEventId: string };
 
 /**
- * Diff of the lessons that should be in Google against the mappings: live lessons without a mapping are
- * inserted, changed ones updated, mapped lessons that are no longer live (cancelled, not held, out of the window)
- * are deleted. Pure, so the sync service only executes.
+ * Diff of the lessons that should be in Google against the mappings: live lessons of the window without a
+ * mapping are inserted, changed ones updated; a mapped lesson outside the window is deleted only when it is
+ * gone for good (`isGone`: cancelled, not held, missing) — completed history stays in the teacher's calendar.
+ * Pure, so the sync service only executes.
  */
-export function planExport(live: readonly LessonView[], mappings: readonly ExportMapping[]): ExportOp[] {
+export function planExport(
+  connectionId: string,
+  live: readonly LessonView[],
+  mappings: readonly ExportMapping[],
+  isGone: (lessonId: string) => boolean,
+): ExportOp[] {
   const byLesson = new Map(mappings.map((m) => [m.lessonId, m]));
   const ops: ExportOp[] = [];
   const seen = new Set<string>();
@@ -75,7 +89,14 @@ export function planExport(live: readonly LessonView[], mappings: readonly Expor
     const event = eventOf(view);
     const signature = signatureOf(event);
     const mapping = byLesson.get(view.lesson.id);
-    if (!mapping || mapping.deleted) ops.push({ op: 'insert', lessonId: view.lesson.id, event, signature });
+    if (!mapping || mapping.deleted)
+      ops.push({
+        op: 'insert',
+        lessonId: view.lesson.id,
+        googleEventId: eventIdFor(connectionId, view.lesson.id),
+        event,
+        signature,
+      });
     else if (mapping.signature !== signature)
       ops.push({
         op: 'update',
@@ -86,7 +107,7 @@ export function planExport(live: readonly LessonView[], mappings: readonly Expor
       });
   }
   for (const m of mappings) {
-    if (!m.deleted && !seen.has(m.lessonId))
+    if (!m.deleted && !seen.has(m.lessonId) && isGone(m.lessonId))
       ops.push({ op: 'delete', lessonId: m.lessonId, googleEventId: m.googleEventId });
   }
   return ops;

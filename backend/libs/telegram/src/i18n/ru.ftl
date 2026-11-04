@@ -1185,6 +1185,7 @@ btn-google-export = { $mark } Экспорт занятий
 btn-google-sync = 🔄 Синхронизировать
 btn-google-disconnect = ⛔ Отключить
 btn-google-disconnect-confirm = ⛔ Да, отключить
+btn-google-not-me = 🚫 Это не я — отключить
 google-not-configured = <b>Google Calendar</b>
     Интеграция не настроена на этом сервере: обратитесь к администратору.
 google-intro = <b>Google Calendar</b>

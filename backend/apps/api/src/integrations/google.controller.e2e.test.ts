@@ -100,18 +100,33 @@ describe('Google Calendar REST (5.14.1): connect, public callback page, settings
     expect(denied.headers['content-type']).toContain('text/html');
     expect(denied.body).toContain('Вы не предоставили доступ');
 
-    google.codes.set('code-x', { email: 'anna@gmail.com' });
-    const ok = await app.inject({
+    // Google down in the middle of the callback: an HTML page, the state is spent
+    google.codes.set('code-down', { email: 'anna@gmail.com' });
+    google.outage = new Error('503');
+    const down = await app.inject({
       method: 'GET',
-      url: `/api/v1/integrations/google/callback?state=${state}&code=code-x`,
+      url: `/api/v1/integrations/google/callback?state=${state}&code=code-down`,
     });
-    expect(ok.statusCode).toBe(200);
+    expect(down.statusCode).toBe(502);
+    expect(down.body).toContain('Google временно недоступен');
+    google.outage = null;
+
+    const connect2 = await app.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/google/connect',
+      headers: auth(),
+    });
+    const state2 = new URL(connect2.json<{ data: { url: string } }>().data.url).searchParams.get('state')!;
+    google.codes.set('code-x', { email: 'anna@gmail.com' });
+    // two browsers hit the callback with the same link at once: exactly one wins
+    const callback = () =>
+      app.inject({ method: 'GET', url: `/api/v1/integrations/google/callback?state=${state2}&code=code-x` });
+    const [r1, r2] = await Promise.all([callback(), callback()]);
+    expect([r1.statusCode, r2.statusCode].sort()).toEqual([200, 404]);
+    const ok = r1.statusCode === 200 ? r1 : r2;
     expect(ok.body).toContain('Google Calendar подключён');
     expect(ok.body).toContain('https://t.me/TestStaffBot');
-    const replay = await app.inject({
-      method: 'GET',
-      url: `/api/v1/integrations/google/callback?state=${state}&code=code-x`,
-    });
+    const replay = await callback();
     expect(replay.statusCode).toBe(404);
     expect(replay.body).toContain('Ссылка устарела');
 
