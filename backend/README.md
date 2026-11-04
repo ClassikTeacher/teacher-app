@@ -11,7 +11,7 @@ apps/
   worker/       # queues and schedulers (outbox publisher, notifications, expirations, series, lesson lifecycle)
 libs/
   shared/       # config, db, redis, s3, logging, errors, ids, time, http envelope
-  modules/      # identity, access, people, schedule, files, content, homework, audit, notifications (use-cases + repositories)
+  modules/      # identity, access, people, schedule, files, content, homework, gradebook, integrations, audit, notifications
   telegram/     # auth-bot, staff-bot, student-bot, parent-bot, shared UI, i18n
 migrations/     # hand-written SQL migrations applied in order by `pnpm migrate`
 scripts/        # CLI: migrate, seed:superadmin, ...
@@ -51,6 +51,8 @@ pnpm typecheck     # tsc --noEmit
 pnpm format:check  # Prettier
 pnpm test:unit     # fast, no containers
 pnpm test:integration  # Testcontainers: PostgreSQL, Redis, S3 (needs Docker)
+# without Docker: a local PostgreSQL 16 (CREATE DATABASE rights) and Redis, S3 is faked in-process
+TEST_SERVICES=local TEST_PG_URL=postgres://user:pass@127.0.0.1:5432/postgres TEST_REDIS_URL=redis://127.0.0.1:6379 pnpm test:integration
 pnpm build         # dist/ for apps and libs
 ```
 

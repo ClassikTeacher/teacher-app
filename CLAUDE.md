@@ -16,7 +16,9 @@
 
 ## Текущее состояние (2026-11)
 
-M1–M5 закрыты и прошли ревью. Не начаты: **M6 «Результаты»** (журналы, шкалы, отчёт, ICS, «Успеваемость» в ботах) и **M7 «Стабилизация»**. Заглушки под M6: `libs/modules/people/journals.port.ts` (`JournalsPort.ensureForLink` только логирует), раздел `journals` в `staff-bot/sections.ts` отвечает `staff-section-soon`, кнопка «⭐ Оценить» в карточке сдачи, `assignment.grading = { kind: 'journal' }`, `submission_review.grade_entry_id`, `HomeworkQuery.stats` для отчёта.
+M1–M6 закрыты (M6: журналы, шкалы, статистика, отчёты, ICS, «Успеваемость» в ботах — см. `backend/docs/M6-SUMMARY.md`). Не начата **M7 «Стабилизация»** (нагрузка, наблюдаемость, бэкапы, безопасность, юридические тексты, пилот). Боты к реальному Telegram ещё не подключались (нет токенов).
+
+Локальный прогон интеграционных тестов без Docker: `TEST_SERVICES=local TEST_PG_URL=postgres://user:pass@127.0.0.1:5432/postgres TEST_REDIS_URL=redis://127.0.0.1:6379 pnpm test:integration` (нужен локальный PostgreSQL 16 с правом CREATE DATABASE и Redis; S3 подменяется встроенным фейком `test/local-services.ts`).
 
 ## Команды (из `backend/`)
 
@@ -43,7 +45,7 @@ backend/
   apps/api/src/<area>/*.controller.ts   # REST + вебхуки, тонкие адаптеры; zod-схемы рядом (*.schemas.ts)
   apps/worker/src/                      # WorkerRunner: outbox-публикатор, планировщики, джобы
   libs/shared/src/                      # config (env.schema), db (drizzle, TransactionManager, migrator), redis, s3, logging, errors, ids, time
-  libs/modules/<module>/                # identity, access, audit, outbox, people, schedule, notifications, files, content, homework
+  libs/modules/<module>/                # identity, access, audit, outbox, people, schedule, notifications, files, content, homework, gradebook, integrations
   libs/telegram/src/
     core/                               # bot-factory, flow (диалоги), sections, callback, ui (escapeHtml), i18n
     auth-bot/ staff-bot/ student-bot/ parent-bot/
@@ -54,7 +56,7 @@ backend/
 
 Алиасы: `@shared/*`, `@modules/*`, `@telegram/*`, `@test/*`. Импорты с расширением `.js` (ESM, NodeNext).
 
-Внутри модуля: `schema.ts` (drizzle), `*.repository.ts`, `*.use-case.ts`, `*.query.ts` (чтение), `*.rules.ts` (чистые функции, unit-тесты), `*.handler.ts` (подписчики событий), `*.job.ts` (воркер), `<module>.module.ts`, `index.ts`. Новый модуль M6 по спеке называется `gradebook`.
+Внутри модуля: `schema.ts` (drizzle), `*.repository.ts`, `*.use-case.ts`, `*.query.ts` (чтение), `*.rules.ts` (чистые функции, unit-тесты), `*.handler.ts` (подписчики событий), `*.job.ts` (воркер), `<module>.module.ts`, `index.ts`.
 
 ## Архитектурные инварианты
 
@@ -70,7 +72,7 @@ backend/
 
 ## Боты
 
-- Все тексты — ключи в `ru.ftl`; литералов в обработчиках нет. Ключи вариантов Fluent — без точек.
+- Все тексты — ключи в `ru.ftl`; литералов в обработчиках нет. Ключи вариантов Fluent — без точек; пустой ключ `[]` недопустим — необязательные фрагменты собирает продюсер (`commentLine`, `kindLine`), а не селектор. Есть unit-тест, который рендерит каждый `ntf-*` шаблон с набором переменных (`notifications/types.test.ts`): новая переменная шаблона добавляется и туда.
 - Экран = `SectionModule` (`core/sections.ts`); для StaffBot реестр `staff-bot/sections.ts` задаёт роли и фичи, авторизация кнопок `s:<section>:<action>` центральная.
 - Диалог = класс `Flow<D>` (`core/flow.ts`): шаги `enter/onText/onCallback/onMedia`, состояние в сессии (Redis), `complete()` может вернуть `{ goto }`. Терминальные ошибки (`CONFLICT`, `NOT_FOUND`) сбрасывают диалог; лимиты и фичи проверять до старта диалога.
 - `callback_data` ≤ 64 байт: короткие ключи, для строк списков — `short-ref` (индекс + 4 hex хвоста UUID, T-16). Id из callback валидировать как UUID. Кнопка должна нести цель действия, а не брать её из сессии.
