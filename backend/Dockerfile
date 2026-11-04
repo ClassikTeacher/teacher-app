@@ -17,7 +17,8 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/migrations ./migrations
-COPY --from=build /app/libs/telegram/src/i18n ./libs/telegram/src/i18n
+# the compiled code resolves the Fluent files relative to dist/ (render.ts, core/i18n.ts)
+COPY --from=build /app/libs/telegram/src/i18n ./dist/libs/telegram/src/i18n
 COPY package.json ./
 USER node
 CMD ["node", "dist/apps/api/src/main.js"]
