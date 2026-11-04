@@ -62,20 +62,20 @@
 
 ## Сверка с приёмкой WORK-PLAN
 
-| Задача | Приёмка | Статус |
-| --- | --- | --- |
-| M3-01 | гонка из двух транзакций, буфер в записи | ✅ `occupancy.integration.test.ts` |
-| M3-02 | UC-14 с 3а, 2а | ✅ `create-lesson.integration.test.ts`, `lessons.e2e.test.ts` |
-| M3-03 | DST-тесты слотов, 3 недели ≤ 300 мс | ✅ `windows.test.ts`, `availability.integration.test.ts` |
-| M3-04 | UC-15, UC-39, DST серий | ✅ `rrule.test.ts`, `series.integration.test.ts` |
-| M3-05 | UC-24, UC-38 | ✅ `lesson-report.*`, `report.e2e.test.ts` |
-| M3-06 | своё время у ученика и родителя | ✅ `schedule.e2e.test.ts`, `parent-bot.e2e.test.ts` |
-| M4-01 | UC-20, UC-21 со всеми альтернативами | ✅, но копии родителям при отмене учеником — M-1 |
-| M4-02 | UC-22, UC-23 | ✅ `bulk-cancel.*` |
-| M4-03 | UC-18, UC-19 | ✅, ограничение M-2 |
-| M4-04 | UC-16, UC-17, гонка двух записей | ✅ `booking.integration.test.ts`; заблокированный учитель — H-2 |
-| M4-05 | UC-37, UC-41, копии, тихие часы, ≤ 1 мин | ✅ `delivery.integration.test.ts`, `delivery-policy.test.ts`; срочность переноса — M-4 |
-| M4-06 | сценарии 5.7.6 | ✅ `auto-cancel.integration.test.ts`; серии при блокировке — H-1 |
+| Задача | Приёмка                                  | Статус                                                                                 |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| M3-01  | гонка из двух транзакций, буфер в записи | ✅ `occupancy.integration.test.ts`                                                     |
+| M3-02  | UC-14 с 3а, 2а                           | ✅ `create-lesson.integration.test.ts`, `lessons.e2e.test.ts`                          |
+| M3-03  | DST-тесты слотов, 3 недели ≤ 300 мс      | ✅ `windows.test.ts`, `availability.integration.test.ts`                               |
+| M3-04  | UC-15, UC-39, DST серий                  | ✅ `rrule.test.ts`, `series.integration.test.ts`                                       |
+| M3-05  | UC-24, UC-38                             | ✅ `lesson-report.*`, `report.e2e.test.ts`                                             |
+| M3-06  | своё время у ученика и родителя          | ✅ `schedule.e2e.test.ts`, `parent-bot.e2e.test.ts`                                    |
+| M4-01  | UC-20, UC-21 со всеми альтернативами     | ✅, но копии родителям при отмене учеником — M-1                                       |
+| M4-02  | UC-22, UC-23                             | ✅ `bulk-cancel.*`                                                                     |
+| M4-03  | UC-18, UC-19                             | ✅, ограничение M-2                                                                    |
+| M4-04  | UC-16, UC-17, гонка двух записей         | ✅ `booking.integration.test.ts`; заблокированный учитель — H-2                        |
+| M4-05  | UC-37, UC-41, копии, тихие часы, ≤ 1 мин | ✅ `delivery.integration.test.ts`, `delivery-policy.test.ts`; срочность переноса — M-4 |
+| M4-06  | сценарии 5.7.6                           | ✅ `auto-cancel.integration.test.ts`; серии при блокировке — H-1                       |
 
 ## Рекомендуемый порядок
 

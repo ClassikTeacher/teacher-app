@@ -60,6 +60,8 @@ export const teacherProfile = pgTable('teacher_profile', {
   studentCanCancel: boolean('student_can_cancel').notNull().default(true),
   parentCanCancel: boolean('parent_can_cancel').notNull().default(true),
   defaultNoticeText: text('default_notice_text').notNull().default(''),
+  /** M6-01 (migration 0018): a grade entered by the student or a parent is accepted without confirmation (5.11.2 💡). */
+  gradeAutoConfirm: boolean('grade_auto_confirm').notNull().default(false),
   onboardedAt: tstz('onboarded_at'),
   ...timestamps(),
 });

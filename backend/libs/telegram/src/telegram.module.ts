@@ -92,6 +92,10 @@ import { ReviewFlow } from './staff-bot/assignments/review.flow.js';
 import { StudentAssignmentsSection } from './student-bot/assignments.section.js';
 import { SubmitFlow } from './student-bot/submit.flow.js';
 import { ParentAssignmentsSection } from './parent-bot/assignments.section.js';
+import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
+import { JournalsSection } from './staff-bot/journals/journals.section.js';
+import { GradeEntryFlow } from './staff-bot/journals/grade-entry.flow.js';
+import { JournalTextFlow } from './staff-bot/journals/journal-text.flow.js';
 
 const FLOWS = [
   OnboardingFlow,
@@ -133,6 +137,8 @@ const FLOWS = [
   CreateAssignmentFlow,
   ReviewFlow,
   SubmitFlow,
+  GradeEntryFlow,
+  JournalTextFlow,
 ];
 const SECTIONS = [
   TodaySection,
@@ -150,6 +156,7 @@ const SECTIONS = [
   FileTypesSection,
   MaterialsSection,
   AssignmentsSection,
+  JournalsSection,
 ];
 const STUDENT_SECTIONS = [
   StudentScheduleSection,
@@ -182,6 +189,7 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     FilesModule,
     ContentModule,
     HomeworkModule,
+    GradebookModule,
   ],
   providers: [
     Clock,

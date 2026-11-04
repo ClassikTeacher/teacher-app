@@ -237,6 +237,7 @@ export class LessonReportFlow extends Flow<LessonReportData> {
     }
     // 5.6.4 / UC-26: homework straight from the report, participants and the lesson preset
     const kb = new InlineKeyboard()
+      .text(ctx.t('btn-lesson-grades'), sectionCb('journals', 'lesson', d.lessonId))
       .text(ctx.t('btn-assign-homework'), sectionCb('assignments', 'new', d.lessonId))
       .row()
       .text(ctx.t('btn-back'), sectionCb('today', 'lesson', d.lessonId));

@@ -86,6 +86,7 @@ menu-groups = 🧑‍🤝‍🧑 Группы
 menu-materials = 📚 Материалы
 menu-assignments = 📝 Задания
 menu-journals = 📊 Журналы и отчёты
+menu-reports = 📄 Отчёты
 menu-attention = ⚠️ Требует внимания
 menu-settings = ⚙️ Настройки
 menu-admin-section = 🛠 Администрирование
@@ -1088,7 +1089,10 @@ ntf-digest-daily = ☀️ <b>Сводка на { $date }</b>
         [0] {""}
        *[other] {" "}— { $lessons }
     }
-    Без итогов: { $awaiting } · Заявок ждут ответа: { $requests } · На проверке: { $unchecked }
+    Без итогов: { $awaiting } · Заявок ждут ответа: { $requests } · На проверке: { $unchecked }{ $grades ->
+        [0] {""}
+       *[other] {" "}· Отметок на подтверждение: { $grades }
+    }
 ntf-channel-unreachable = ⚠️ { $student } заблокировал(а) бота — уведомления не доставляются. Копии родителям продолжают приходить.
 btn-set-notifications = 🔔 Уведомления
 notif-settings-teacher = <b>Уведомления</b>
@@ -1168,6 +1172,8 @@ notif-type-name = { $code ->
     [submission-reviewed] Проверка задания
     [storage-full] Хранилище заполнено
     [file-infected] Файл отклонён антивирусом
+    [grade-added] Новая отметка
+    [grade-digest] Сводка отметок за день
    *[other] { $code }
 }
 
@@ -1321,6 +1327,54 @@ material-deleted = Материал удалён, место в хранилищ
 btn-purge-files = 🗑 Удалить файлы
 submission-files-purged = Файлы сдачи удалены ({ $count }), место освобождено.
 ntf-storage-full = ⚠️ Хранилище заполнено: ученики не могут сдавать работы с файлами. Удалите ненужные материалы или попросите администратора увеличить квоту.
+
+## M6-01: gradebook notifications (5.11, 5.13.1)
+grade-category = { $key ->
+    [independent] самостоятельная
+    [control] контрольная
+    [exam] экзамен
+    [quarter] четвертная
+    [year] годовая
+   *[current] текущая
+}
+grade-category-current = текущая
+grade-category-independent = самостоятельная
+grade-category-control = контрольная
+grade-category-exam = экзамен
+grade-category-quarter = четвертная
+grade-category-year = годовая
+journal-type = { $type ->
+    [tests] Тесты
+    [custom] Мой журнал
+   *[school] Школьные отметки
+}
+ntf-grade-added = { $type ->
+    [tests] 📈 Результат теста
+    [custom] 🌟 Новая отметка
+   *[school] 📊 Новая отметка
+} по предмету <b>{ $subject }</b> (учитель { $teacher }): <b>{ $value }</b>{ $kind ->
+    [] {""}
+   *[other] {" "}· { $kind }
+  }, { $date }.{ $source ->
+    [teacher] {""}
+   *[other] {" "}Учитель подтвердил внесённую вами отметку.
+  }{ $comment ->
+    [] {""}
+   *[other] {"\n"}Комментарий: { $comment }
+  }
+ntf-grade-digest = 📊 Сегодня учитель { $teacher } добавил ещё несколько отметок по предмету <b>{ $subject }</b>. Откройте «Успеваемость», чтобы посмотреть все.
+ntf-grade-proposed = 📝 { $by }{ $source ->
+    [parent] {" "}(родитель)
+   *[other] {""}
+  } сообщил(а) отметку ученика { $student } по предмету <b>{ $subject }</b>: <b>{ $value }</b> · { $kind }, { $date }.{ $comment ->
+    [] {""}
+   *[other] {"\n"}Комментарий: { $comment }
+  }
+    Подтвердить запись в журнале?
+ntf-grade-rejected = ❌ Учитель { $teacher } не подтвердил отметку <b>{ $value }</b> · { $kind } ({ $date }) по предмету { $subject }. Если это ошибка — напишите учителю.
+btn-open-journal = 📊 Открыть журнал
+btn-grade-confirm = ✅ Подтвердить
+btn-grade-reject = ❌ Отклонить
 assignments-list = <b>Задания</b> · активных: { $active }
 assignments-empty = <b>Задания</b>
     Заданий пока нет. Создайте первое: условие, кому и срок — ученики получат уведомление.
@@ -1376,7 +1430,6 @@ btn-accept = ✅ Принять
 btn-return = 🔁 На доработку
 btn-grade = ⭐ Оценить
 btn-send-files = 📎 Файлы ({ $count })
-grade-soon = Оценки в журнал появятся вместе с журналами (следующая веха).
 review-comment-optional = <b>Принять работу.</b> Напишите комментарий ученику или пропустите.
 review-comment-required = <b>На доработку.</b> Напишите, что нужно исправить (обязательно).
 review-files = Прикрепить проверенный файл? Отправьте файлы (прикреплено: { $count }) или нажмите «Готово».
@@ -1416,6 +1469,121 @@ btn-toggle-resubmit = Пересдача: { $value ->
 newhw-done = ✅ Задание «{ $title }» опубликовано: адресатов { $count }.
 newhw-no-one = Выберите хотя бы одного ученика или группу.
 btn-assign-homework = 📝 Задать ДЗ
+
+## M6-01: StaffBot → Журналы (UC-29, UC-30)
+journals-root = <b>Журналы и отчёты</b>
+    Выберите ученика. Ожидают подтверждения: { $pending }.
+journals-root-empty = <b>Журналы и отчёты</b>
+    Журналы появятся, когда ученики примут приглашения.
+journals-student = <b>Журналы: { $student }</b>
+    По каждому предмету три журнала: школьные отметки, тесты и ваш собственный. 🙈 — скрытый.
+journal-card = <b>{ $student } · { $subject } · { $type ->
+    [tests] Тесты
+    [custom] Мой журнал
+   *[school] Школьные отметки
+}</b>{ $hidden ->
+    [yes] {" "}🙈
+   *[no] {""}
+}
+    Период: { $period }
+    { $stats }
+
+    { $entries }
+journal-no-entries = Записей пока нет.
+journal-stats-school = Записей: { $count } · средний балл: <b>{ $average }</b>{ $byCategory }
+journal-stats-tests = Тестов: { $count } · последний: <b>{ $last }</b> { $delta }
+    Лучший: { $best } · среднее: { $average } · цель: { $target }{ $toTarget }
+journal-stats-custom = Записей: { $count } · { $counts }{ $average }
+journal-avg = среднее { $value }
+journal-period-all = все записи
+journal-period-a = Все
+journal-period-m = Этот месяц
+journal-period-p = Прошлый месяц
+btn-grade-add = ➕ Добавить
+btn-grades-pending = ⏳ Подтвердить ({ $count })
+btn-vis-student = { $state } Видит ученик
+btn-vis-parent = { $state } Видят родители
+btn-journal-hide = 🙈 Скрыть журнал
+btn-journal-unhide = 👁 Показать журнал
+btn-target = 🎯 Цель
+btn-report = 📄 Отчёт
+btn-set-scale = 🌟 Моя шкала
+btn-test-kinds = 📈 Виды тестов
+btn-grade-auto = { $state } Отметки от учеников без подтверждения
+btn-grade-edit = ✏️ Изменить
+btn-grade-delete = 🗑 Удалить
+btn-lesson-grades = ⭐ Отметки
+btn-skip-student = ⏭ Пропустить ученика
+grade-entry-card = <b>{ $student } · { $subject } · { $type ->
+    [tests] Тесты
+    [custom] Мой журнал
+   *[school] Школьные отметки
+}</b>
+    Значение: <b>{ $value }</b> · { $kind } · { $date }
+    Комментарий: { $comment }
+    Источник: { $source ->
+        [student] внёс ученик
+        [parent] внёс родитель
+       *[teacher] учитель
+    }{ $status ->
+        [pending] {" "}· ⏳ ждёт подтверждения
+        [rejected] {" "}· ❌ отклонена
+       *[confirmed] {""}
+    }
+grade-source = { $source ->
+    [student] внёс ученик
+    [parent] внёс родитель
+   *[teacher] учитель
+}
+grade-delete-confirm = Удалить запись? Она останется в истории журнала (JRN-05), но исчезнет из списка и расчётов.
+grade-confirmed = Отметка подтверждена и записана в журнал.
+grade-rejected = Отметка отклонена.
+grades-pending = <b>Ожидают подтверждения</b>
+    Отметки, которые сообщили ученики и родители. Откройте запись, чтобы подтвердить или отклонить.
+grades-pending-empty = <b>Ожидают подтверждения</b>
+    Всё подтверждено.
+grade-pick-journal = <b>{ $student }.</b> В какой журнал записать?
+grade-ask-school = Какая отметка? Выберите или напишите число от 1 до 10.
+grade-ask-custom = Выберите значение вашей шкалы.
+grade-ask-test = Баллы теста: напишите «73» (из { $max }), «42/60» или «42/60 (30+12)» — с баллами частей A и B.
+grade-ask-category = Какая работа?
+grade-ask-kind = Какой тест?
+grade-ask-date = За какой день? Выберите или напишите дату «ДД.ММ».
+grade-ask-comment = Комментарий к записи (ученик его увидит) или «Пропустить».
+grade-value-invalid = Не понял значение. Напишите число в пределах шкалы (например «8» или «42/60»).
+grade-date-invalid = Не понял дату. Напишите «ДД.ММ» не позже сегодняшнего дня.
+grade-saved = Отметка записана в журнал.
+grade-updated = Запись изменена.
+grade-saved-many = Готово: записей добавлено — { $count }.
+grade-nobody = Некому ставить отметки: у занятия нет участников.
+grade-link-inactive = Ученик больше не занимается у вас — отметку поставить нельзя.
+grade-no-scale = Сначала задайте свою шкалу (от 2 до 10 значений).
+btn-day-yesterday = Вчера
+journal-ask-target = Целевой балл в процентах от максимума (например «80»), или уберите цель.
+btn-target-clear = Убрать цель
+journal-target-invalid = Напишите целое число от 0 до 100.
+journal-target-set = Цель установлена: { $value } %.
+journal-target-cleared = Цель убрана.
+journal-ask-kind = Название нового вида теста (например «Олимпиада»).
+journal-kind-added = Вид теста «{ $name }» добавлен.
+journal-kind-exists = Такой вид теста уже есть.
+journal-kinds = <b>Виды тестов</b>
+    Доступны: { $kinds }
+    Свои виды можно удалить (🗑) — в старых записях они останутся.
+btn-kind-add = ➕ Добавить вид
+journal-ask-scale = Напишите значения шкалы, по одному в строке, от { $min } до { $max } — сначала эмодзи, потом подпись, при желании «= вес» для статистики:
+    ⭐ Отлично = 3
+    👍 Хорошо = 2
+    💪 Старайся = 1
+journal-scale-invalid = Не получилось: нужно от { $min } до { $max } строк, подписи не длиннее { $label } символов и без повторов, эмодзи — один символ.
+journal-scale-saved = Шкала сохранена: значений — { $count }.
+journal-scale = <b>Моя шкала: { $title }</b>
+    { $values }
+    🙈 рядом со значением скрывает его для новых записей (старые записи сохраняются).
+journal-scale-empty = <b>Моя шкала</b>
+    Шкала не задана. Задайте от 2 до 10 значений с эмодзи — и ставьте их в своём журнале.
+journal-scale-min = В шкале должно остаться хотя бы два значения.
+btn-scale-set = ✏️ Задать шкалу
 shw-list = <b>Задания</b> · активных: { $active }
     { $items }
 shw-empty = <b>Задания</b>

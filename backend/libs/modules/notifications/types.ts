@@ -241,6 +241,32 @@ export const NOTIFICATION_TYPES = {
     ccParentsByDefault: false,
     recipientCanDisable: true,
   },
+  // 5.11 / 5.13.1 (M6-01): a new mark to the student (no copy by default, can be muted), a proposed mark to the
+  // teacher, the verdict on a proposal to its author, the daily digest when marks exceed the threshold (NTF-07)
+  'grade.added': {
+    code: 'grade.added',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: true,
+  },
+  'grade.proposed': {
+    code: 'grade.proposed',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: false,
+  },
+  'grade.rejected': {
+    code: 'grade.rejected',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: false,
+  },
+  'grade.digest': {
+    code: 'grade.digest',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: true,
+  },
   // 5.10 / 5.13.1 (M5-03, M5-04): homework to the student (copies by default), submissions to the teacher
   'homework.assigned': {
     code: 'homework.assigned',
@@ -307,6 +333,7 @@ export const CC_CONFIGURABLE_TYPES: readonly NotificationTypeCode[] = [
   'booking.decided',
   'series.created',
   'material.granted',
+  'grade.added',
   'homework.assigned',
   'homework.overdue',
   'submission.reviewed',

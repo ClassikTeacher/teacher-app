@@ -52,23 +52,23 @@
 
 ## Сверка с приёмкой WORK-PLAN
 
-| Задача | Приёмка | Статус |
-| --- | --- | --- |
-| M1-01 | compose поднимает всё, CI зелёный | ✅ (Compose, Dockerfile, CI со smoke-тестом; RustFS вместо MinIO) |
-| M1-02 | интеграционный тест через миграции в контейнере | ✅ Testcontainers, миграции с checksum |
-| M1-03 | unit INV/ACC, SA из env принял ссылку | ✅ `invitation.rules.test`, `account.rules.test`, seed e2e |
-| M1-04 | приглашение → анкета → active → ссылка на StaffBot | ✅ `auth-bot.e2e` |
-| M1-05 | меню по ролям, отказ заблокированному | ✅ `requireActor`, `staff-bot.e2e` |
-| M1-06 | UC-04, UC-07, UC-08; фича сразу меняет меню | ✅ версии кэша в Redis, инвалидация после коммита |
-| M1-07 | событие доходит ровно один раз, падение Redis не теряет уведомление | ✅ `pipeline.integration`, PostgreSQL — источник истины |
-| M1-08 | предмет из пополненного списка | ✅ |
-| M1-09 | UC-02 e2e | ✅ `super-admin-transfer` e2e |
-| M2-01 | оба бота отвечают на `/start`, меню по ролям | ✅ `PersonBot` |
-| M2-02 | UC-10 с 3а, 5а, 5б | ✅ `accept-student-invitation` + e2e |
-| M2-03 | UC-11; ученик видит родителей, не управляет | ✅ `familyRevokerRole` запрещает ученику |
-| M2-04 | `PATCH /students/{id}`, `PATCH /me`, «Настройки» | ✅ |
-| M2-05 | UC-12 e2e | ✅ |
-| M2-06 | UC-33, UC-34, UC-35; архив ушедшего, ничего заблокированному | ✅ `linkView`, `leave.e2e` |
+| Задача | Приёмка                                                             | Статус                                                            |
+| ------ | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| M1-01  | compose поднимает всё, CI зелёный                                   | ✅ (Compose, Dockerfile, CI со smoke-тестом; RustFS вместо MinIO) |
+| M1-02  | интеграционный тест через миграции в контейнере                     | ✅ Testcontainers, миграции с checksum                            |
+| M1-03  | unit INV/ACC, SA из env принял ссылку                               | ✅ `invitation.rules.test`, `account.rules.test`, seed e2e        |
+| M1-04  | приглашение → анкета → active → ссылка на StaffBot                  | ✅ `auth-bot.e2e`                                                 |
+| M1-05  | меню по ролям, отказ заблокированному                               | ✅ `requireActor`, `staff-bot.e2e`                                |
+| M1-06  | UC-04, UC-07, UC-08; фича сразу меняет меню                         | ✅ версии кэша в Redis, инвалидация после коммита                 |
+| M1-07  | событие доходит ровно один раз, падение Redis не теряет уведомление | ✅ `pipeline.integration`, PostgreSQL — источник истины           |
+| M1-08  | предмет из пополненного списка                                      | ✅                                                                |
+| M1-09  | UC-02 e2e                                                           | ✅ `super-admin-transfer` e2e                                     |
+| M2-01  | оба бота отвечают на `/start`, меню по ролям                        | ✅ `PersonBot`                                                    |
+| M2-02  | UC-10 с 3а, 5а, 5б                                                  | ✅ `accept-student-invitation` + e2e                              |
+| M2-03  | UC-11; ученик видит родителей, не управляет                         | ✅ `familyRevokerRole` запрещает ученику                          |
+| M2-04  | `PATCH /students/{id}`, `PATCH /me`, «Настройки»                    | ✅                                                                |
+| M2-05  | UC-12 e2e                                                           | ✅                                                                |
+| M2-06  | UC-33, UC-34, UC-35; архив ушедшего, ничего заблокированному        | ✅ `linkView`, `leave.e2e`                                        |
 
 ## Рекомендуемый порядок
 

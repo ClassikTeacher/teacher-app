@@ -6,6 +6,7 @@ import { formatInZone } from '@shared/time/timezone.js';
 import { AccountRepository } from '@modules/identity/account.repository.js';
 import type { AccountRow } from '@modules/identity/schema.js';
 import { LessonsQuery } from '@modules/schedule/lessons/lessons.query.js';
+import { GradeEntryRepository } from '@modules/gradebook/grade-entry.repository.js';
 import { SubmissionRepository } from '@modules/homework/submission.repository.js';
 import { BookingRequestRepository } from '@modules/schedule/requests/booking-request.repository.js';
 import { timeToMinutes } from './delivery-policy.js';
@@ -35,6 +36,7 @@ export class DailyDigestJob {
     private readonly lessons: LessonsQuery,
     private readonly requests: BookingRequestRepository,
     private readonly submissions: SubmissionRepository,
+    private readonly grades: GradeEntryRepository,
     private readonly notifications: NotificationService,
     private readonly repo: NotificationRepository,
     private readonly clock: Clock,
@@ -77,11 +79,12 @@ export class DailyDigestJob {
       start: local.startOf('day').toJSDate(),
       end: local.startOf('day').plus({ days: 1 }).toJSDate(),
     };
-    const [today, awaiting, pending, unchecked] = await Promise.all([
+    const [today, awaiting, pending, unchecked, grades] = await Promise.all([
       this.lessons.teacherLessons(teacherId, day, ['scheduled', 'awaiting_report', 'completed']),
       this.lessons.awaitingReport(teacherId),
       this.requests.listPendingByTeacher(teacherId),
       this.submissions.countUnreviewed(teacherId), // 5.10.5: unchecked work joins the morning digest
+      this.grades.countPending(teacherId), // 5.11.2 💡 (M6-01): marks reported by students await the teacher
     ]);
     const who = (v: (typeof today)[number]): string =>
       v.group ? v.group.name : v.participants.map((p) => p.displayName).join(', ');
@@ -98,6 +101,7 @@ export class DailyDigestJob {
         awaiting: awaiting.length,
         requests: pending.length,
         unchecked,
+        grades,
       },
       dedupeKey: `digest.daily:${teacherId}:${date}`,
       keepTime: true,
