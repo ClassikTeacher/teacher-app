@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InlineKeyboard } from 'grammy';
 import { isUuid } from '@shared/ids/index.js';
 import type { Actor } from '@modules/access/actor.js';
+import { FeatureService } from '@modules/access/features/feature.service.js';
 import { SubjectRepository } from '@modules/people/subject.repository.js';
 import { type TeacherSettings, TeacherSettingsUseCase } from '@modules/people/teacher-settings.use-case.js';
 import type { CreatedBot } from '../../core/bot-factory.js';
@@ -18,6 +19,7 @@ import { IcsScreen } from '../../person/ics.screen.js';
 import { NotificationEditFlow } from '../../person/notification-edit.flow.js';
 import { NotificationSettingsScreen } from '../../person/notification-settings.screen.js';
 import { BookingSettingsScreen } from './booking.screen.js';
+import { GoogleScreen } from './google.screen.js';
 import { WindowsScreen } from './windows.screen.js';
 
 /**
@@ -37,6 +39,8 @@ export class SettingsSection implements StaffSectionModule {
     private readonly notifications: NotificationSettingsScreen,
     private readonly notificationEdit: NotificationEditFlow,
     private readonly ics: IcsScreen,
+    private readonly google: GoogleScreen,
+    private readonly features: FeatureService,
     private readonly addRule: AddRuleFlow,
     private readonly addException: AddExceptionFlow,
   ) {}
@@ -70,8 +74,11 @@ export class SettingsSection implements StaffSectionModule {
       .row()
       .text(ctx.t('btn-set-notifications'), sectionCb('settings', 'notifications'))
       .text(ctx.t('btn-ics'), sectionCb('settings', 'ics'))
-      .row()
-      .text(ctx.t('btn-back'), 'm:main');
+      .row();
+    // 5.3.3: the menu item of a disabled feature is hidden (E2-05)
+    if (await this.features.isEnabled(actor.accountId, 'calendar.google'))
+      kb.text(ctx.t('btn-google'), sectionCb('settings', 'gcal')).row();
+    kb.text(ctx.t('btn-back'), 'm:main');
     await renderMenu(
       ctx,
       this.summary(
@@ -112,6 +119,7 @@ export class SettingsSection implements StaffSectionModule {
     )
       return;
     if (await this.ics.handle(ctx, actor, 'settings', action, sectionCb('settings', 'main'))) return; // 5.14.2 (M6-04)
+    if (await this.google.handle(ctx, actor, action, sectionCb('settings', 'main'))) return; // 5.14.1 (E2-05)
     const arg = args[0];
     switch (action) {
       case 'edit':

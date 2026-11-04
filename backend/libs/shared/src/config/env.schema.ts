@@ -62,6 +62,15 @@ export const envSchema = z.object({
     .regex(/^[0-9a-f]{64}$/i, 'SYSTEM_KEY_HASH must be a sha256 hex digest')
     .optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+
+  /** Google Calendar (5.14.1, E2-05): the OAuth client; unset → the integration reports «not configured». */
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  /** 32-byte hex key (`openssl rand -hex 32`) that seals Google tokens at rest (10.1). */
+  GOOGLE_TOKEN_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, 'GOOGLE_TOKEN_KEY must be 64 hex characters (32 bytes)')
+    .optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -112,6 +121,9 @@ function crossFieldProblems(env: Env): string[] {
       problems.push('PUBLIC_BASE_URL must use https in production');
     if (env.LOG_PRETTY) problems.push('LOG_PRETTY is not available in production');
   }
+  if ((env.GOOGLE_CLIENT_ID ?? env.GOOGLE_CLIENT_SECRET) && !googleConfig(env)) {
+    problems.push('GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_TOKEN_KEY must be set together');
+  }
   return problems;
 }
 
@@ -121,5 +133,21 @@ export function botConfigs(env: Env): Record<BotKind, BotConfig> {
     staff: { kind: 'staff', token: env.BOT_STAFF_TOKEN, username: env.BOT_STAFF_USERNAME },
     student: { kind: 'student', token: env.BOT_STUDENT_TOKEN, username: env.BOT_STUDENT_USERNAME },
     parent: { kind: 'parent', token: env.BOT_PARENT_TOKEN, username: env.BOT_PARENT_USERNAME },
+  };
+}
+
+export interface GoogleConfig {
+  clientId: string;
+  clientSecret: string;
+  tokenKeyHex: string;
+}
+
+/** The Google OAuth client, or null when the integration is not configured on this installation. */
+export function googleConfig(env: Env): GoogleConfig | null {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_TOKEN_KEY) return null;
+  return {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    tokenKeyHex: env.GOOGLE_TOKEN_KEY,
   };
 }

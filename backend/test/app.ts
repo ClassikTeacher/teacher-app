@@ -1,6 +1,7 @@
 import type { INestApplicationContext, ModuleMetadata, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '../libs/shared/src/config/config.module.js';
+import type { Env } from '../libs/shared/src/config/env.schema.js';
 import { DbModule } from '../libs/shared/src/db/db.module.js';
 import { RedisModule } from '../libs/shared/src/redis/redis.module.js';
 import { S3Module } from '../libs/shared/src/s3/s3.module.js';
@@ -22,12 +23,19 @@ export interface TestContext {
 export async function createTestContext(
   tdb: TestDatabase,
   modules: NonNullable<ModuleMetadata['imports']>,
-  options: { now?: string; extraProviders?: ModuleMetadata['providers'] } = {},
+  options: {
+    now?: string;
+    extraProviders?: ModuleMetadata['providers'];
+    /** Extra environment (e.g. GOOGLE_* for the integration). */
+    env?: Partial<Record<keyof Env, string>>;
+    /** Providers replaced by fakes (external APIs): `{ token, value }`. */
+    overrides?: { token: Type<unknown> | symbol | string; value: unknown }[];
+  } = {},
 ): Promise<TestContext> {
   const clock = new FixedClock(options.now ?? '2026-10-19T12:00:00Z');
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [
-      ConfigModule.withEnv(testEnv({ DATABASE_URL: tdb.url })),
+      ConfigModule.withEnv(testEnv({ DATABASE_URL: tdb.url, ...(options.env ?? {}) })),
       DbModule,
       RedisModule,
       S3Module,
@@ -36,8 +44,9 @@ export async function createTestContext(
     providers: options.extraProviders ?? [],
   })
     .overrideProvider(Clock)
-    .useValue(clock)
-    .compile();
+    .useValue(clock);
+  for (const o of options.overrides ?? []) builder = builder.overrideProvider(o.token).useValue(o.value);
+  const moduleRef = await builder.compile();
   // No HTTP adapter here (createNestApplication would require @nestjs/platform-express); REST tests build their own.
   const app = await moduleRef.init();
   return {

@@ -34,6 +34,7 @@ import { SeriesRepository } from './series/series.repository.js';
 import { SeriesUseCase } from './series/series.use-case.js';
 import { BusyQuery } from './occupancy/busy.query.js';
 import { OccupancyRepository } from './occupancy/occupancy.repository.js';
+import { ExternalBusyRepository } from './occupancy/external-busy.repository.js';
 import { OccupancyService } from './occupancy/occupancy.service.js';
 import { PersonalBlockRepository } from './occupancy/personal-block.repository.js';
 import { PersonalBlockUseCase } from './occupancy/personal-block.use-case.js';
@@ -41,6 +42,7 @@ import { PersonalBlockUseCase } from './occupancy/personal-block.use-case.js';
 const PROVIDERS = [
   Clock,
   OccupancyRepository,
+  ExternalBusyRepository,
   OccupancyService,
   PersonalBlockRepository,
   PersonalBlockUseCase,

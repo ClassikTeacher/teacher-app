@@ -30,6 +30,18 @@ export const NOTIFICATION_TYPES = {
     ccParentsByDefault: false,
     recipientCanDisable: false,
   },
+  'google.connected': {
+    code: 'google.connected',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: false,
+  },
+  'google.sync_failed': {
+    code: 'google.sync_failed',
+    critical: false,
+    ccParentsByDefault: false,
+    recipientCanDisable: false,
+  },
   'role.granted': {
     code: 'role.granted',
     critical: false,

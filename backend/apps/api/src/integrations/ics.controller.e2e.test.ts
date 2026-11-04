@@ -6,6 +6,7 @@ import { DbModule } from '@shared/db/db.module.js';
 import { AppErrorFilter } from '@shared/http/app-error.filter.js';
 import { EnvelopeInterceptor } from '@shared/http/envelope.interceptor.js';
 import { RedisModule } from '@shared/redis/redis.module.js';
+import { S3Module } from '@shared/s3/s3.module.js';
 import { createTestDatabase, type TestDatabase } from '@test/db.js';
 import { testEnv } from '@test/env.js';
 import { createAccount } from '@test/factories.js';
@@ -31,6 +32,7 @@ describe('ICS REST (5.14.2): POST /ics/rotate and the public GET /ics/{token}.ic
         ConfigModule.withEnv(testEnv({ DATABASE_URL: tdb.url })),
         DbModule,
         RedisModule,
+        S3Module,
         IdentityModule,
         AccessModule,
         PeopleModule,

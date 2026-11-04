@@ -17,7 +17,7 @@
 
 ## Текущее состояние (2026-11)
 
-M1–M6 закрыты (M6: журналы, шкалы, статистика, отчёты, ICS, «Успеваемость» в ботах — см. `backend/docs/M6-SUMMARY.md`). Не начата **M7 «Стабилизация»** (нагрузка, наблюдаемость, бэкапы, безопасность, юридические тексты, пилот). Боты к реальному Telegram ещё не подключались (нет токенов).
+M1–M6 закрыты (M6: журналы, шкалы, статистика, отчёты, ICS, «Успеваемость» в ботах — см. `backend/docs/M6-SUMMARY.md`). Есть CI/CD (GHCR + ручной деплой, `backend/docs/DEPLOY.md`). Из этапа 2 сделан **E2-05 Google Calendar** (фича `calendar.google`, модуль `integrations/google`, мягкая занятость `external_busy` в schedule, T-39). Не начата **M7 «Стабилизация»** (нагрузка, наблюдаемость, бэкапы, безопасность, юридические тексты, пилот). Боты к реальному Telegram ещё не подключались (нет токенов).
 
 Локальный прогон интеграционных тестов без Docker: `TEST_SERVICES=local TEST_PG_URL=postgres://user:pass@127.0.0.1:5432/postgres TEST_REDIS_URL=redis://127.0.0.1:6379 pnpm test:integration` (нужен локальный PostgreSQL 16 с правом CREATE DATABASE и Redis; S3 подменяется встроенным фейком `test/local-services.ts`).
 
@@ -66,6 +66,7 @@ backend/
 - **Модули не ходят в чужие таблицы**: только публичные сервисы и доменные события (`libs/modules/outbox/domain-event.ts`, обработчики `*.handler.ts`). Пример: `link.ended` → people закрывает связь, schedule отменяет занятия, homework снимает цели.
 - **Ошибки — `AppError` с кодом из `ERROR_CODES`** (`@shared/errors/app-error.ts`); боты мапят код в `error-<code>` из `ru.ftl`, REST — в HTTP-статус. Новый код = новая строка в `.ftl` (есть тест полноты локали).
 - **Уведомления**: тип регистрируется в `notifications/types.ts` (`NOTIFICATION_TYPES`, при необходимости `CC_CONFIGURABLE_TYPES`), текст — в обработчике `notifications/handlers/*`, доставка — через таблицу `notification` с `dedupe_key`. Один пакетный текст на получателя вместо N сообщений (NTF-07).
+- **Внешние API — порт + фейк в тестах**: Telegram (`test/telegram.ts`), Google (`GOOGLE_API` → `GoogleApiHttp` на `fetch`, в тестах `test/google.ts` через `createTestContext(..., { overrides, env })`). Секреты в БД — только через `SecretBox` (`@shared/crypto`).
 - **Гонки решает БД**: `EXCLUDE` для занятости, частичные уникальные индексы, `FOR UPDATE`, advisory-lock на учителя. Порядок блокировок: профиль учителя → связь → заявки → занятие (T-21). Нарушение порядка — deadlock, ревью это ловит.
 - **Время**: `timestamptz` в UTC, IANA-пояс у аккаунта, Luxon. Окна и серии — локальное время учителя. DST-тесты обязательны для всего, что считает даты.
 - **Пользовательские тексты хранятся как есть**, экранируются при выводе `escapeHtml` (T-11). Системные причины — кодами, текст рендерится по локали (T-24).
