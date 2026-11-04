@@ -1,0 +1,130 @@
+name: Deploy
+
+# Ручной деплой на продакшен-сервер (Ubuntu, docker compose + Caddy). Запуск: Actions → Deploy → Run workflow.
+# Подтверждение — через required reviewers окружения `production` (настраивается в Settings → Environments).
+# Что происходит: проверка, что образ есть в GHCR → rsync backend/deploy/ на сервер → deploy.sh <tag>
+# (pull → дамп БД → миграции → перезапуск api/worker → health wait, при неудаче откат на предыдущий тег).
+# Откат вручную: запустить этот же workflow со старым тегом (sha-…) или `deploy.sh --rollback` на сервере.
+#
+# Secrets (environment `production`): DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS (опц.)
+# Variables: DOMAIN (для проверки /health после деплоя), DEPLOY_PORT (опц., по умолчанию 22),
+#            APP_DIR (опц., по умолчанию /opt/tutor-platform). Подробности — backend/docs/DEPLOY.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Тег образа в GHCR (sha-1a2b3c4 или main). Пусто — образ коммита выбранной ветки"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+# one deploy at a time; a second run waits instead of racing the first one
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.image_tag || 'current commit' }} → production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.DOMAIN }}
+    env:
+      APP_DIR: ${{ vars.APP_DIR || '/opt/tutor-platform' }}
+      SSH_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the image tag
+        id: tag
+        run: |
+          tag="${{ inputs.image_tag }}"
+          [[ -n "$tag" ]] || tag="sha-$(git rev-parse --short=7 HEAD)"
+          [[ "$tag" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || { echo "bad tag: $tag" >&2; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}/backend" >> "$GITHUB_OUTPUT"
+          echo "Deploying $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check that the image exists
+        run: |
+          if ! docker manifest inspect "${{ steps.tag.outputs.image }}:${{ steps.tag.outputs.tag }}" >/dev/null; then
+            echo "::error::image ${{ steps.tag.outputs.image }}:${{ steps.tag.outputs.tag }} not found in GHCR — has CI on main finished for this commit?"
+            exit 1
+          fi
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          [[ -n "$DEPLOY_HOST" && -n "${{ secrets.DEPLOY_USER }}" && -n "$DEPLOY_SSH_KEY" ]] \
+            || { echo "::error::secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY are required (environment production)"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [[ -n "$DEPLOY_KNOWN_HOSTS" ]]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::DEPLOY_KNOWN_HOSTS is not set: trusting the host key from ssh-keyscan (TOFU)"
+            ssh-keyscan -p "$SSH_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 600 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CFG
+          Host deploy-target
+            HostName $DEPLOY_HOST
+            Port $SSH_PORT
+            User ${{ secrets.DEPLOY_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          CFG
+          ssh deploy-target 'echo "connected to $(hostname) as $(whoami)"; docker compose version'
+
+      - name: Sync deploy files to the server
+        # compose file, Caddyfile and scripts; .env on the server is never touched
+        run: |
+          rsync -az --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
+            --exclude '.env' \
+            backend/deploy/ "deploy-target:$APP_DIR/"
+          ssh deploy-target "chmod +x $APP_DIR/deploy.sh $APP_DIR/backup.sh $APP_DIR/server-setup.sh"
+
+      - name: Deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # the registry token travels over stdin only (not in the command line, not in the log)
+          printf '%s' "$GHCR_TOKEN" | ssh deploy-target \
+            "GHCR_TOKEN_STDIN=1 GHCR_USER='${{ github.actor }}' APP_DIR='$APP_DIR' $APP_DIR/deploy.sh '${{ steps.tag.outputs.tag }}'"
+
+      - name: Check /health through Caddy
+        if: vars.DOMAIN != ''
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 10 "https://${{ vars.DOMAIN }}/health"; then echo; exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://${{ vars.DOMAIN }}/health did not answer (DNS / certificate / Caddy?)"; exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "Result: **${{ job.status }}**, tag \`${{ steps.tag.outputs.tag }}\`"
+            echo
+            echo 'Rollback: run this workflow again with the previous `sha-…` tag, or on the server: `/opt/tutor-platform/deploy.sh --rollback`.'
+          } >> "$GITHUB_STEP_SUMMARY"

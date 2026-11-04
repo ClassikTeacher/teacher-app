@@ -1,5 +1,8 @@
 name: CI
 
+# Проверки перед вливанием в main (PR) и публикация образа после вливания (push в main).
+# Деплой на сервер — отдельный ручной workflow (deploy.yml), см. backend/docs/DEPLOY.md.
+
 on:
   push:
     branches: [main]
@@ -31,6 +34,11 @@ jobs:
           cache-dependency-path: backend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: docker compose config --quiet
+      - name: Validate the production compose file
+        run: |
+          cp deploy/.env.prod.example deploy/.env
+          docker compose --project-directory deploy -f deploy/docker-compose.prod.yml config --quiet
+          rm deploy/.env
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm format:check
@@ -42,9 +50,15 @@ jobs:
       - run: pnpm build
 
   images:
-    name: build docker images
+    name: images · build, smoke test, publish
     runs-on: ubuntu-latest
     needs: backend
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # the smoke test runs against this local tag; GHCR tags are computed below
+      LOCAL_IMAGE: tutor-platform/backend:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -53,10 +67,10 @@ jobs:
         with:
           context: backend
           push: false
-          tags: tutor-platform/backend:${{ github.sha }}
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          load: true
       - name: Smoke test the image
         run: |
           docker network create smoke
@@ -64,6 +78,59 @@ jobs:
           docker run -d --name redis --network smoke redis:7-alpine
           docker run -d --name s3 --network smoke -e RUSTFS_ACCESS_KEY=k -e RUSTFS_SECRET_KEY=smoke-secret-key rustfs/rustfs:1.0.3
           sleep 8
-          docker run -d --name api --network smoke -p 3000:3000             -e NODE_ENV=production -e TELEGRAM_MODE=off -e SYSTEM_KEY_HASH=$(printf 'x' | sha256sum | cut -d' ' -f1)             -e PUBLIC_BASE_URL=https://example.invalid -e JWT_SECRET=$(openssl rand -hex 32)             -e DATABASE_URL=postgres://t:t@pg:5432/t -e REDIS_URL=redis://redis:6379             -e S3_ENDPOINT=http://s3:9000 -e S3_ACCESS_KEY=k -e S3_SECRET_KEY=smoke-secret-key             tutor-platform/backend:${{ github.sha }}
+          # the same settings the server passes to the image (deploy/docker-compose.prod.yml + .env)
+          APP_ENV=(
+            -e NODE_ENV=production -e TELEGRAM_MODE=off
+            -e SYSTEM_KEY_HASH=$(printf 'x' | sha256sum | cut -d' ' -f1)
+            -e PUBLIC_BASE_URL=https://example.invalid -e JWT_SECRET=$(openssl rand -hex 32)
+            -e DATABASE_URL=postgres://t:t@pg:5432/t -e REDIS_URL=redis://redis:6379
+            -e S3_ENDPOINT=http://s3:9000 -e S3_ACCESS_KEY=k -e S3_SECRET_KEY=smoke-secret-key
+          )
+          # the migrate entrypoint used by deploy.sh must work from the image
+          docker run --rm --network smoke "${APP_ENV[@]}" "$LOCAL_IMAGE" node dist/scripts/migrate.js
+          docker run -d --name api --network smoke -p 3000:3000 "${APP_ENV[@]}" "$LOCAL_IMAGE"
           for i in $(seq 1 20); do curl -fsS http://localhost:3000/health && exit 0; sleep 2; done
           docker logs api; exit 1
+
+      # --- publishing: only after a merge into main; PRs stop at the smoke test ---
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # ghcr.io/<owner>/<repo>/backend (metadata-action lowercases the name)
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=main
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=tutor-platform-backend
+      - name: Publish to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+      - name: Summary
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          {
+            echo "### Образ опубликован"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "Деплой: Actions → Deploy → Run workflow, тег \`sha-$(git rev-parse --short=7 HEAD)\`."
+          } >> "$GITHUB_STEP_SUMMARY"

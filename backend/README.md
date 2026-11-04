@@ -26,6 +26,12 @@ Path aliases: `@shared/*`, `@modules/*`, `@telegram/*`, `@test/*` (see `tsconfig
 - Node.js 22 LTS, pnpm 10
 - Docker (Compose v2) for PostgreSQL 16, Redis 7 and S3 storage
 
+## Deployment
+
+CI (`.github/workflows/ci.yml`) checks every PR and publishes the image to GHCR on `main`; the manual **Deploy** workflow
+rolls it out to the Ubuntu server (`backend/deploy/`: compose + Caddy, `deploy.sh` with DB dump, migrations and rollback).
+Runbook: `docs/DEPLOY.md`.
+
 ## Quick start
 
 ```bash

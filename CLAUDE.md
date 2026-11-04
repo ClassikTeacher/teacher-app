@@ -10,6 +10,7 @@
 | `WORK-PLAN.md` | План по вехам M1–M7 (MVP) и эпики этапов 2–3. Definition of Done — раздел 1. |
 | `backend/docs/PROGRESS.md` | Статус задач и журнал ревью по каждой. **Обновлять при каждой закрытой задаче.** |
 | `backend/docs/DECISIONS.md` | Технические решения `T-NN`. Новое архитектурное решение — новая строка здесь. |
+| `backend/docs/DEPLOY.md` | Runbook деплоя: GitHub (branch protection, environment `production`), сервер, обновление, откат, бэкапы. |
 | `backend/docs/M*-SUMMARY.md`, `M*-REVIEW.md` | Итоги вех и ревью заказчика; в конце SUMMARY — «контракты для следующих вех» (что уже заложено под M6/этап 2). |
 
 Правило спеки: любое новое требование — через журнал решений (раздел 12), не через чат.
@@ -36,7 +37,7 @@ pnpm test -- <путь>       # один файл
 pnpm build
 ```
 
-CI (`.github/workflows/ci.yml`) гоняет всё перечисленное плюс сборку Docker-образа и smoke-тест `/health`. Prettier проверяет весь `backend/` — после правок запускать `pnpm format`.
+CI (`.github/workflows/ci.yml`) гоняет всё перечисленное плюс сборку Docker-образа и smoke-тест `/health`; после merge в `main` публикует образ в GHCR. Деплой — ручной workflow `deploy.yml` (окружение `production` с подтверждением) → `backend/deploy/deploy.sh` на сервере; runbook — `backend/docs/DEPLOY.md`. Prettier проверяет весь `backend/` — после правок запускать `pnpm format`.
 
 ## Структура
 
