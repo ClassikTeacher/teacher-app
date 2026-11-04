@@ -51,7 +51,7 @@ describe('StaffBot skeleton: menu by roles, refusals, chat registration', () => 
     });
 
     await h.press(user, '📊 Журналы и отчёты');
-    expect(h.tg.sentTexts(user.id).at(-1)).toContain('появится в следующих версиях');
+    expect(h.tg.sentTexts(user.id).at(-1)).toContain('Журналы и отчёты'); // the real section since M6-01
     const edits = h.tg.calls.filter((c) => c.method === 'editMessageText');
     expect(edits.length).toBeGreaterThan(0); // menu edited in place, not re-sent
 
