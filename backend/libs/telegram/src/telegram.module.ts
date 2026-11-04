@@ -93,6 +93,8 @@ import { StudentAssignmentsSection } from './student-bot/assignments.section.js'
 import { SubmitFlow } from './student-bot/submit.flow.js';
 import { ParentAssignmentsSection } from './parent-bot/assignments.section.js';
 import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
+import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
+import { IcsScreen } from './person/ics.screen.js';
 import { JournalsSection } from './staff-bot/journals/journals.section.js';
 import { GradeEntryFlow } from './staff-bot/journals/grade-entry.flow.js';
 import { JournalTextFlow } from './staff-bot/journals/journal-text.flow.js';
@@ -194,6 +196,7 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     ContentModule,
     HomeworkModule,
     GradebookModule,
+    IntegrationsModule,
   ],
   providers: [
     Clock,
@@ -205,6 +208,7 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     RequestsScreen,
     BookingSettingsScreen,
     NotificationSettingsScreen,
+    IcsScreen,
     StudentCcScreen,
     ...SECTIONS,
     {

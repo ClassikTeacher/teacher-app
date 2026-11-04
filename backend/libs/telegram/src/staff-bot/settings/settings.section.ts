@@ -14,6 +14,7 @@ import { sectionCb, type StaffSectionModule } from '../section-module.js';
 import { isSettingField, SettingEditFlow } from './setting-edit.flow.js';
 import { AddExceptionFlow } from './add-exception.flow.js';
 import { AddRuleFlow } from './add-rule.flow.js';
+import { IcsScreen } from '../../person/ics.screen.js';
 import { NotificationEditFlow } from '../../person/notification-edit.flow.js';
 import { NotificationSettingsScreen } from '../../person/notification-settings.screen.js';
 import { BookingSettingsScreen } from './booking.screen.js';
@@ -35,6 +36,7 @@ export class SettingsSection implements StaffSectionModule {
     private readonly booking: BookingSettingsScreen,
     private readonly notifications: NotificationSettingsScreen,
     private readonly notificationEdit: NotificationEditFlow,
+    private readonly ics: IcsScreen,
     private readonly addRule: AddRuleFlow,
     private readonly addException: AddExceptionFlow,
   ) {}
@@ -67,6 +69,7 @@ export class SettingsSection implements StaffSectionModule {
       .text(ctx.t('btn-set-booking'), sectionCb('settings', 'booking'))
       .row()
       .text(ctx.t('btn-set-notifications'), sectionCb('settings', 'notifications'))
+      .text(ctx.t('btn-ics'), sectionCb('settings', 'ics'))
       .row()
       .text(ctx.t('btn-back'), 'm:main');
     await renderMenu(
@@ -108,6 +111,7 @@ export class SettingsSection implements StaffSectionModule {
       (await this.notifications.handle(ctx, actor, 'settings', action, args, sectionCb('settings', 'main')))
     )
       return;
+    if (await this.ics.handle(ctx, actor, 'settings', action, sectionCb('settings', 'main'))) return; // 5.14.2 (M6-04)
     const arg = args[0];
     switch (action) {
       case 'edit':
