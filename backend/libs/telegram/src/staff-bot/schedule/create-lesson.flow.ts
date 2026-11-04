@@ -276,7 +276,7 @@ export class CreateLessonFlow extends Flow<CreateLessonData> {
       return { goto: 'time' };
     }
     try {
-      const { lesson } = await this.create.execute(ctx.actor.actor, {
+      const { lesson, externalBusy } = await this.create.execute(ctx.actor.actor, {
         target: d.target,
         startsAt,
         durationMin: d.durationMin,
@@ -290,7 +290,7 @@ export class CreateLessonFlow extends Flow<CreateLessonData> {
           who: escapeHtml(d.label),
           day: fmtDay(d.dateIso, zone),
           time: `${fmtTime(lesson.startsAt, zone)}–${fmtTime(lesson.endsAt, zone)}`,
-        }),
+        }) + (externalBusy ? `\n\n${ctx.t('lesson-external-busy-warning')}` : ''), // 5.5.2 soft block
         kb,
       );
     } catch (error) {

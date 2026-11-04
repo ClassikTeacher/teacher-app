@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { BOT_KINDS } from '@shared/config/env.schema.js';
 import { OverdueAssignmentsJob } from '@modules/homework/overdue.job.js';
 import { FileMaintenanceJob } from '@modules/files/file-maintenance.job.js';
+import { GoogleSyncJob } from '@modules/integrations/google/google-sync.job.js';
 import { ExpireInvitationsJob } from '@modules/identity/expire-invitations.job.js';
 import { ExpireLeaveRequestsJob } from '@modules/people/links/expire-leave-requests.job.js';
 import { DailyDigestJob } from '@modules/notifications/digest.job.js';
@@ -28,6 +29,8 @@ const DIGEST_INTERVAL_MS = 5 * 60_000;
 const FILES_INTERVAL_MS = 15 * 60_000;
 /** UC-40: a passed due date is noticed within a few minutes. */
 const HOMEWORK_INTERVAL_MS = 5 * 60_000;
+/** 5.14.1: Google connections are checked every minute; each syncs when due (requested export or 10 minutes). */
+const GOOGLE_INTERVAL_MS = 60_000;
 
 /**
  * Starts the periodic jobs and the queue workers (7.4 "worker"). Ticks never overlap with themselves and are
@@ -53,6 +56,7 @@ export class WorkerRunner implements OnModuleInit, OnModuleDestroy {
     private readonly digest: DailyDigestJob,
     private readonly fileMaintenance: FileMaintenanceJob,
     private readonly overdue: OverdueAssignmentsJob,
+    private readonly googleSync: GoogleSyncJob,
   ) {}
 
   onModuleInit(): void {
@@ -68,8 +72,9 @@ export class WorkerRunner implements OnModuleInit, OnModuleDestroy {
     this.every('digest', DIGEST_INTERVAL_MS, () => this.digest.run());
     this.every('files', FILES_INTERVAL_MS, () => this.fileMaintenance.run());
     this.every('homework', HOMEWORK_INTERVAL_MS, () => this.overdue.run());
+    this.every('google', GOOGLE_INTERVAL_MS, () => this.googleSync.run());
     this.logger.log(
-      `jobs started: outbox, notifications, invitations, leave-requests, series, lessons, requests, digest, files, homework; send workers: ${bots.join(', ') || 'none'}`,
+      `jobs started: outbox, notifications, invitations, leave-requests, series, lessons, requests, digest, files, homework, google; send workers: ${bots.join(', ') || 'none'}`,
     );
   }
 

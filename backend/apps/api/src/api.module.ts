@@ -34,6 +34,7 @@ import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
 import { GradebookController } from './gradebook/gradebook.controller.js';
 import { ReportsController } from './gradebook/reports.controller.js';
 import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
+import { GoogleController } from './integrations/google.controller.js';
 import { IcsController } from './integrations/ics.controller.js';
 
 @Module({
@@ -75,6 +76,7 @@ import { IcsController } from './integrations/ics.controller.js';
     GradebookController,
     ReportsController,
     IcsController,
+    GoogleController,
   ],
   providers: [Clock],
 })

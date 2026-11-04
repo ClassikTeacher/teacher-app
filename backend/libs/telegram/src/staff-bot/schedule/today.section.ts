@@ -8,6 +8,7 @@ import { FeatureService } from '@modules/access/features/feature.service.js';
 import { type DayItem, DayViewQuery } from '@modules/schedule/day-view.query.js';
 import { CreateLessonUseCase } from '@modules/schedule/lessons/create-lesson.use-case.js';
 import { type LessonView, LessonsQuery } from '@modules/schedule/lessons/lessons.query.js';
+import { ExternalBusyRepository } from '@modules/schedule/occupancy/external-busy.repository.js';
 import { PersonalBlockUseCase } from '@modules/schedule/occupancy/personal-block.use-case.js';
 import { SeriesUseCase } from '@modules/schedule/series/series.use-case.js';
 import type { CreatedBot } from '../../core/bot-factory.js';
@@ -53,6 +54,7 @@ export class TodaySection implements StaffSectionModule {
   constructor(
     private readonly view: DayViewQuery,
     private readonly lessons: LessonsQuery,
+    private readonly externalBusy: ExternalBusyRepository,
     private readonly createLesson: CreateLessonUseCase,
     private readonly blocks: PersonalBlockUseCase,
     private readonly seriesUseCase: SeriesUseCase,
@@ -146,6 +148,11 @@ export class TodaySection implements StaffSectionModule {
 
   private line(ctx: BotContext, item: DayItem, zone: string): string {
     if (item.kind === 'lesson') return lessonLine(ctx, item.view, zone);
+    if (item.kind === 'external')
+      return ctx.t('external-busy-line', {
+        from: fmtTime(item.during.start, zone),
+        to: fmtTime(item.during.end, zone),
+      });
     const from = fmtTime(item.block.startsAt, zone);
     const to = fmtTime(item.block.endsAt, zone);
     return ctx
@@ -302,7 +309,7 @@ export class TodaySection implements StaffSectionModule {
           lessonButtonLabel(ctx, item.view, zone),
           sectionCb('today', 'lesson', item.view.lesson.id),
         ).row();
-      } else {
+      } else if (item.kind === 'block') {
         const time = `${fmtTime(item.block.startsAt, zone)}–${fmtTime(item.block.endsAt, zone)}`;
         kb.text(ctx.t('btn-remove-block', { time }), sectionCb('today', 'unblock', item.block.id)).row();
       }
@@ -380,7 +387,19 @@ export class TodaySection implements StaffSectionModule {
       kb.row();
     }
     kb.text(ctx.t('btn-back'), sectionCb('today', 'day', isoDayOf(view.lesson.startsAt, zone)));
-    await renderMenu(ctx, lessonCardText(ctx, view, zone), kb);
+    // 5.5.2 soft block: a scheduled lesson over an external event carries a warning line (E2-05)
+    const clash =
+      view.lesson.status === 'scheduled' &&
+      (await this.externalBusy
+        .overlapping(view.lesson.teacherId, {
+          start: view.lesson.startsAt,
+          end: view.lesson.endsAt,
+        })
+        .then((list) => list.length > 0));
+    const text = clash
+      ? `${lessonCardText(ctx, view, zone)}\n${ctx.t('lesson-external-busy-warning')}`
+      : lessonCardText(ctx, view, zone);
+    await renderMenu(ctx, text, kb);
   }
 
   /** Same participants, same subject and duration, seven days later; a conflict is explained (CAL-06). */

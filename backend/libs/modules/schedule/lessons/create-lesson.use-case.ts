@@ -10,6 +10,7 @@ import { GroupRepository } from '@modules/people/groups/group.repository.js';
 import { TeacherStudentRepository } from '@modules/people/links/teacher-student.repository.js';
 import { SubjectRepository } from '@modules/people/subject.repository.js';
 import { TeacherProfileRepository } from '@modules/people/teacher-profile.repository.js';
+import { ExternalBusyRepository } from '../occupancy/external-busy.repository.js';
 import { OccupancyService } from '../occupancy/occupancy.service.js';
 import type { CreatedVia, Interval, LessonParticipantRow, LessonRow } from '../schema.js';
 import { LessonRepository } from './lesson.repository.js';
@@ -41,6 +42,8 @@ export interface CreateLessonInput extends LessonDetailsInput {
 export interface CreatedLesson {
   lesson: LessonRow;
   participants: LessonParticipantRow[];
+  /** 5.5.2: the time overlaps an event imported from the teacher's external calendar — a warning, not a block. */
+  externalBusy: boolean;
 }
 
 interface ResolvedTarget {
@@ -61,6 +64,7 @@ export class CreateLessonUseCase {
     private readonly txm: TransactionManager,
     private readonly lessons: LessonRepository,
     private readonly occupancy: OccupancyService,
+    private readonly externalBusy: ExternalBusyRepository,
     private readonly links: TeacherStudentRepository,
     private readonly groups: GroupRepository,
     private readonly profiles: TeacherProfileRepository,
@@ -124,7 +128,8 @@ export class CreateLessonUseCase {
         studentIds: target.studentIds,
       });
       await this.record(actor, lesson, target, during, outsideWindows, now);
-      return { lesson, participants };
+      const externalBusy = (await this.externalBusy.overlapping(teacherId, during)).length > 0;
+      return { lesson, participants, externalBusy };
     });
   }
 

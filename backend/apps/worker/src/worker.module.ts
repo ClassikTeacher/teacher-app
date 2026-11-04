@@ -10,6 +10,7 @@ import { AccessModule } from '@modules/access/access.module.js';
 import { ContentModule } from '@modules/content/content.module.js';
 import { HomeworkModule } from '@modules/homework/homework.module.js';
 import { FilesModule } from '@modules/files/files.module.js';
+import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
 import { IdentityModule } from '@modules/identity/identity.module.js';
 import { NotificationsModule } from '@modules/notifications/notifications.module.js';
 import { OutboxModule } from '@modules/outbox/outbox.module.js';
@@ -36,6 +37,7 @@ import { WorkerRunner } from './worker.runner.js';
     PeopleModule,
     ScheduleModule,
     NotificationsModule,
+    IntegrationsModule,
   ],
   providers: [Clock, WorkerRunner],
 })

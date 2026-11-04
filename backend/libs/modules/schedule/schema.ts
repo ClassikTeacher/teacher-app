@@ -357,3 +357,26 @@ export const bookingRequest = pgTable(
   ],
 );
 export type BookingRequestRow = typeof bookingRequest.$inferSelect;
+
+// E2-05 (migration 0021)
+
+export const EXTERNAL_BUSY_SOURCES = ['google'] as const;
+export type ExternalBusySource = (typeof EXTERNAL_BUSY_SOURCES)[number];
+
+/** 5.5.2: busy time imported from an external calendar — a soft block of the teacher's time (8.2 `external_busy`). */
+export const externalBusy = pgTable(
+  'external_busy',
+  {
+    id: idColumn(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id),
+    source: text('source', { enum: EXTERNAL_BUSY_SOURCES }).notNull(),
+    during: tstzrange('during').notNull(),
+    syncedAt: tstz('synced_at')
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [index('external_busy_account_idx').on(t.accountId, t.source)],
+);
+export type ExternalBusyRow = typeof externalBusy.$inferSelect;

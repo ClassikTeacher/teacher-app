@@ -121,7 +121,26 @@ ghcr.io -u <login> --password-stdin`; образ, который уже депл
   docker compose -f docker-compose.prod.yml up -d api worker
   ```
 
-## 6. Эксплуатация
+## 6. Google Calendar (E2-05, необязательно)
+
+Интеграция включается фичей `calendar.google` у учителя и работает только при заполненных `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, `GOOGLE_TOKEN_KEY` в `.env` (иначе экран в боте говорит «не настроена»).
+
+1. Google Cloud Console → проект → «APIs & Services» → включить **Google Calendar API**.
+2. «OAuth consent screen»: тип External, название платформы, e-mail поддержки, домен `DOMAIN`, ссылка на политику
+   конфиденциальности (M7-05). Скоупы: `…/auth/calendar.app.created`, `…/auth/calendar.freebusy`, `openid`, `email`.
+   Пока приложение в режиме Testing, подключаться могут только тестовые пользователи (до 100), и токен живёт 7 дней;
+   для продакшена нужно пройти проверку Google (verification, 💡 спека 5.14.1 — занимает недели, начать заранее).
+3. «Credentials» → OAuth client ID → Web application; Authorized redirect URI:
+   `https://<DOMAIN>/api/v1/integrations/google/callback`. Client ID и secret — в `.env`.
+4. `GOOGLE_TOKEN_KEY=$(openssl rand -hex 32)`; ключ шифрует refresh-токены в БД (AES-256-GCM). Потеря или смена
+   ключа = учителя подключают Google заново.
+5. `docker compose -f docker-compose.prod.yml restart api worker`, затем админ включает фичу `calendar.google`.
+
+Синхронизацию ведёт `worker` (каждую минуту проверяет подключения; импорт занятости — раз в 10 минут, экспорт — сразу
+после изменений расписания). Push-уведомления Google (watch channels) не используются.
+
+## 7. Эксплуатация
 
 ```bash
 cd /opt/tutor-platform

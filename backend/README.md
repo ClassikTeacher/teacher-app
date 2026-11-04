@@ -11,7 +11,7 @@ apps/
   worker/       # queues and schedulers (outbox publisher, notifications, expirations, series, lesson lifecycle)
 libs/
   shared/       # config, db, redis, s3, logging, errors, ids, time, http envelope
-  modules/      # identity, access, people, schedule, files, content, homework, gradebook, integrations, audit, notifications
+  modules/      # identity, access, people, schedule, files, content, homework, gradebook, integrations (ICS, Google Calendar), audit, notifications
   telegram/     # auth-bot, staff-bot, student-bot, parent-bot, shared UI, i18n
 migrations/     # hand-written SQL migrations applied in order by `pnpm migrate`
 scripts/        # CLI: migrate, seed:superadmin, ...

@@ -212,8 +212,9 @@ export class LessonsController {
   ) {
     const { studentId, groupId, ...rest } = body;
     const target = studentId ? { studentId } : { groupId: groupId! };
-    const { lesson } = await this.create.execute(actor, { ...rest, target });
-    return view(await this.query.teacherLesson(actor.accountId, lesson.id));
+    const { lesson, externalBusy } = await this.create.execute(actor, { ...rest, target });
+    // 5.5.2: an overlap with the teacher's external calendar is a warning, not a refusal
+    return { ...view(await this.query.teacherLesson(actor.accountId, lesson.id)), externalBusy };
   }
 
   @Get(':id')

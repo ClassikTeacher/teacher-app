@@ -26,6 +26,8 @@ describe('notification templates', () => {
           payload: {
             name: 'Анна',
             handle: ' (@anna)',
+            email: 'anna@example.com',
+            calendar: 'Занятия',
             feature: 'x',
             enabled: 'on',
             from: 'A',

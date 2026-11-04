@@ -23,6 +23,7 @@ error-conflict = Это действие уже выполнено.
 error-feature-disabled = Эта функция отключена администратором.
 error-limit-exceeded = Достигнут лимит, обратитесь к администратору.
 error-rate-limited = Слишком много запросов, подождите немного.
+error-integration-not-configured = Интеграция не настроена на этом сервере: обратитесь к администратору.
 
 ## Roles
 role-teacher = учитель
@@ -217,6 +218,8 @@ ntf-feature-changed = { $enabled ->
     [on] ✅ Вам доступна функция «{ $feature }».
    *[other] ⛔ Функция «{ $feature }» отключена администратором.
   }
+ntf-google-connected = ✅ Google Calendar подключён ({ $email }). В вашем Google-аккаунте появился календарь «{ $calendar }» с занятиями; занятость из основного календаря учитывается при показе свободного времени ученикам.
+ntf-google-sync-failed = ⚠️ Google больше не принимает доступ платформы к календарю (доступ отозван или пароль изменён). Синхронизация остановлена: Настройки → Google Calendar → Подключить заново.
 ntf-role-granted = 👑 Вам выдана роль администратора. Раздел «Администрирование» появился в меню.
 ntf-account-unblocked = ✅ Доступ к платформе восстановлен.
 
@@ -567,6 +570,8 @@ schedule-week = <b>Неделя { $from } – { $to }</b>
     { $items }
 schedule-week-day-empty = —
 block-line = 🚫 { $from }–{ $to } { $title }
+external-busy-line = 🟦 { $from }–{ $to } Занято в Google Календаре
+lesson-external-busy-warning = ⚠️ В это время в вашем Google Календаре есть событие. Занятие стоит, но проверьте, нет ли накладки.
 block-new-day = <b>Личный блок «занят», шаг 1.</b> На какой день? Выберите или напишите дату, например <code>25.10</code>.
 block-new-start = <b>Шаг 2.</b> { $day }: с какого времени? Напишите, например <code>14:00</code>.
 block-new-end = <b>Шаг 3.</b> С { $start } до какого времени? Напишите, например <code>16:00</code>, или выберите длительность.
@@ -1170,6 +1175,36 @@ ics-link = <b>Ваша ссылка на календарь</b>
     <code>{ $url }</code>
 
     Добавьте её в календарь как подписку по URL. Предыдущая ссылка больше не действует.
+## E2-05: Google Calendar (5.14.1, UC-43)
+btn-google = 📆 Google Calendar
+btn-google-connect = 🔗 Подключить Google
+btn-google-reconnect = 🔗 Подключить заново
+btn-google-open-consent = 🌐 Открыть страницу Google
+btn-google-import = { $mark } Импорт занятости
+btn-google-export = { $mark } Экспорт занятий
+btn-google-sync = 🔄 Синхронизировать
+btn-google-disconnect = ⛔ Отключить
+btn-google-disconnect-confirm = ⛔ Да, отключить
+btn-google-not-me = 🚫 Это не я — отключить
+google-not-configured = <b>Google Calendar</b>
+    Интеграция не настроена на этом сервере: обратитесь к администратору.
+google-intro = <b>Google Calendar</b>
+    Платформа создаст в вашем Google-аккаунте отдельный календарь «Занятия (Tutor Platform)» и будет вести в нём занятия, включая переносы и отмены. Из вашего основного календаря она видит только интервалы «занят» (без названий событий) — ученикам это время не предлагается как свободное, а вас бот предупредит о накладке.
+    Доступ ограничен двумя разрешениями: календари, созданные приложением, и сведения о занятости. Отключить можно в любой момент.
+google-consent = <b>Подключение Google</b>
+    Откройте страницу Google, выберите аккаунт и подтвердите <b>оба</b> разрешения. После этого вернитесь в бот — придёт сообщение о подключении. Ссылка действует 15 минут.
+google-status = <b>Google Calendar</b> · { $state ->
+        [error] ⚠️ доступ отозван, подключите заново
+       *[ok] 🟢 подключён
+    }
+    Аккаунт: { $email }
+    Импорт занятости: { $importState } (календари: { $calendars}) · последний: { $imported }
+    Экспорт занятий: { $exportState } · последний: { $exported }
+    Синхронизация — каждые 10 минут и сразу после изменений в расписании.
+google-disconnect-confirm = <b>Отключить Google Calendar?</b>
+    Доступ будет отозван, календарь «Занятия (Tutor Platform)» удалён из вашего Google-аккаунта, импортированная занятость забыта. Ваши занятия на платформе не пострадают.
+google-disconnected = Google Calendar отключён.
+google-sync-requested = Синхронизация запустится в течение минуты.
 btn-notif-via-parent-on = ☑️ Через родителя
 btn-notif-via-parent-off = ⬜ Через родителя
 btn-notif-digest-on = ☑️ Сводка включена

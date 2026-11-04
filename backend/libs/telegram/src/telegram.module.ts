@@ -95,6 +95,7 @@ import { ParentAssignmentsSection } from './parent-bot/assignments.section.js';
 import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
 import { IntegrationsModule } from '@modules/integrations/integrations.module.js';
 import { IcsScreen } from './person/ics.screen.js';
+import { GoogleScreen } from './staff-bot/settings/google.screen.js';
 import { ProgressScreen } from './person/progress.screen.js';
 import { ProposeGradeFlow } from './person/propose-grade.flow.js';
 import { StudentProgressSection } from './student-bot/progress.section.js';
@@ -216,6 +217,7 @@ const BOTS = [AuthBot, StaffBot, StudentBot, ParentBot];
     BookingSettingsScreen,
     NotificationSettingsScreen,
     IcsScreen,
+    GoogleScreen,
     ProgressScreen,
     StudentCcScreen,
     ...SECTIONS,
