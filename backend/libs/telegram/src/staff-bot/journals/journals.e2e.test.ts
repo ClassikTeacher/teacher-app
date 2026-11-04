@@ -9,6 +9,7 @@ import { linkStudent, MATH_ID } from '@test/people.js';
 import { AccessModule } from '@modules/access/access.module.js';
 import { ContentModule } from '@modules/content/content.module.js';
 import { FilesModule } from '@modules/files/files.module.js';
+import { TelegramFileDownloader } from '@modules/files/telegram-file-downloader.js';
 import { GradeEntriesUseCase } from '@modules/gradebook/grade-entries.use-case.js';
 import { GradeEntryRepository } from '@modules/gradebook/grade-entry.repository.js';
 import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
@@ -27,6 +28,7 @@ import { TelegramModule } from '../../telegram.module.js';
 import { StaffBot } from '../staff-bot.js';
 
 type TgUser = { id: number; first_name: string };
+const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64)]);
 
 describe('UC-29 e2e: journals in StaffBot — records, scale, test kinds, visibility, proposals, lesson marks', () => {
   let tdb: TestDatabase;
@@ -57,6 +59,7 @@ describe('UC-29 e2e: journals in StaffBot — records, scale, test kinds, visibi
       ],
       { now: '2026-11-04T12:00:00Z' },
     );
+    ctx.get(TelegramFileDownloader).transport = async () => JPG;
     staff = createBotHarness(ctx.get(StaffBot), ctx.get(ActorResolver));
     teacherId = (
       await createAccount(tdb.txm, {
@@ -188,17 +191,36 @@ describe('UC-29 e2e: journals in StaffBot — records, scale, test kinds, visibi
     await staff.text(teacher(), '60');
     await staff.press(teacher(), 'ЦТ');
     await staff.text(teacher(), '01.10');
-    await staff.press(teacher(), 'Пропустить');
+    await staff.press(teacher(), 'Пропустить'); // comment
+    expect(last()).toContain('скан бланка');
+    await staff.press(teacher(), 'Пропустить'); // file
     await staff.press(teacher(), '◀️ Назад');
     await staff.press(teacher(), '➕ Добавить');
     await staff.text(teacher(), '42/60 (30+12)');
     await staff.press(teacher(), 'ЦТ');
     await staff.press(teacher(), 'Сегодня');
     await staff.press(teacher(), 'Пропустить');
+    // 5.11.3 «вложение»: the scanned sheet arrives as a photo and follows the record card as a document
+    await staff.handle({
+      update_id: 990_001,
+      message: {
+        message_id: 990_001,
+        date: 1_700_000_000,
+        chat: { id: teacherTg, type: 'private' as const, first_name: 'Анна' },
+        from: { id: teacherTg, is_bot: false, first_name: 'Анна' },
+        photo: [
+          { file_id: 'tg-scan', file_unique_id: 'u-scan', width: 10, height: 10, file_size: JPG.length },
+        ],
+      },
+    });
+    expect(last()).toContain('Отметка записана');
     await staff.press(teacher(), '◀️ Назад');
     expect(last()).toContain('последний: <b>42/60 (70 %)</b> ▲ +10');
     expect(last()).toContain('цель: 80 % (▼ −10)');
     expect(last()).toContain('04.11 · <b>42/60 (70 %)</b> · ▲ +10 · ЦТ');
+    const before = staff.tg.sentDocuments(teacherTg).length;
+    await staff.press(teacher(), /04\.11 · 42\/60/);
+    expect(staff.tg.sentDocuments(teacherTg).length).toBe(before + 1);
   });
 
   it('UC-30: a proposed mark is confirmed from the notification button; a second press is stale', async () => {

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { Clock } from '@shared/time/clock.js';
 import { AccessModule } from '@modules/access/access.module.js';
 import { AuditModule } from '@modules/audit/audit.module.js';
+import { FilesModule } from '@modules/files/files.module.js';
 import { IdentityModule } from '@modules/identity/identity.module.js';
 import { OutboxModule } from '@modules/outbox/outbox.module.js';
 import { PeopleModule } from '@modules/people/people.module.js';
@@ -22,7 +23,7 @@ const PROVIDERS = [
 
 /** 7.4 `gradebook`: journals, scales, records, statistics (M6-01, M6-02); reports join in M6-03. */
 @Module({
-  imports: [IdentityModule, AccessModule, AuditModule, OutboxModule, PeopleModule],
+  imports: [IdentityModule, AccessModule, AuditModule, OutboxModule, PeopleModule, FilesModule],
   providers: PROVIDERS,
   exports: PROVIDERS,
 })

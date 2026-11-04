@@ -47,6 +47,8 @@ const valueBody = z
     weight: z.number().min(0).max(MAX_ENTRY_WEIGHT).nullable().optional(),
     comment: z.string().trim().max(MAX_ENTRY_COMMENT_LENGTH).nullable().optional(),
     date: isoDate.nullable().optional(),
+    /** Tests: a draft file of the teacher (the scanned sheet). */
+    fileId: z.string().uuid().nullable().optional(),
   })
   .strict();
 const createBody = valueBody.extend({
@@ -106,6 +108,7 @@ const entryView = (e: GradeEntryRow) => ({
   comment: e.comment,
   lessonId: e.lessonId,
   assignmentId: e.assignmentId,
+  fileId: e.fileId,
   source: e.source,
   status: e.status,
   version: e.version,

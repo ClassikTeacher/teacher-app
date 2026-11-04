@@ -89,13 +89,19 @@ export class GradeEventsHandler implements OnModuleInit {
       scaleValues: new Map(values.map((v) => [v.id, v])),
       testKinds: new Map(kinds.map((k) => [k.id, k])),
     };
-    const kind = entryKindText(entry, journal.type, lookups);
+    const kindRaw = entryKindText(entry, journal.type, lookups);
+    const kind =
+      journal.type === 'school'
+        ? this.labels.t(`grade-category-${kindRaw ?? 'current'}`)
+        : esc(kindRaw ?? '');
+    // Fluent variants cannot match an empty string, so optional fragments are built here (T-11: escaped once)
     return {
       value: esc(entryValueText(entry, journal.type, lookups)),
-      kind:
-        journal.type === 'school' ? this.labels.t(`grade-category-${kind ?? 'current'}`) : esc(kind ?? ''),
+      kind,
+      kindLine: kind ? ` · ${kind}` : '',
       date: DateTime.fromISO(entry.date).toFormat(DATE),
       comment: esc(entry.comment ?? ''),
+      commentLine: entry.comment ? `\n${this.labels.t('grade-comment-label')}: ${esc(entry.comment)}` : '',
       type: journal.type,
     };
   }

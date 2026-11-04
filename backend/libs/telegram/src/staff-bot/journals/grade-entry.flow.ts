@@ -18,10 +18,12 @@ import {
   type SchoolCategory,
   type TestParts,
 } from '@modules/gradebook/schema.js';
+import { IngestFileUseCase } from '@modules/files/ingest-file.use-case.js';
 import { cardDisplayName } from '@modules/people/links/students.query.js';
 import type { BotContext, FlowState } from '../../core/context.js';
 import { Flow, flowCb, type FlowNext, type FlowStep } from '../../core/flow.js';
 import { clip } from '../../core/format.js';
+import { mediaOf, UPLOADABLE_KINDS } from '../../core/media.js';
 import { escapeHtml, renderMenu, say } from '../../core/ui.js';
 import { isTerminalFlowError } from '../common/flow-errors.js';
 import { parseDayInput } from '../schedule/time-input.js';
@@ -55,6 +57,8 @@ export interface GradeEntryData extends Record<string, unknown>, GradeEntryPrese
   testKindId: string | null;
   comment: string | null;
   date: string | null;
+  /** Tests: the uploaded scan (a draft file until saved). */
+  fileId: string | null;
   /** Ids shown on the journal picker, for index references. */
   shownJournals: string[];
   shownKinds: string[];
@@ -79,6 +83,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
     private readonly journals: JournalsUseCase,
     private readonly repo: JournalRepository,
     private readonly query: GradebookQuery,
+    private readonly ingest: IngestFileUseCase,
     private readonly clock: Clock,
   ) {
     super();
@@ -88,6 +93,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
     const preset = (arg as GradeEntryPreset | undefined) ?? {};
     return {
       ...preset,
+      fileId: null,
       index: 0,
       type: null,
       value: null,
@@ -333,7 +339,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
         ),
       onCallback: async (ctx, d, action) => {
         if (action === 'cancel') return this.cancel(ctx, d);
-        return action === 'skip' ? { done: true } : { stay: true };
+        return action === 'skip' ? this.afterComment(d) : { stay: true };
       },
       onText: async (ctx, d, text) => {
         if (text.length > MAX_ENTRY_COMMENT_LENGTH) {
@@ -341,10 +347,54 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
           return { stay: true };
         }
         d.comment = text.trim() || null;
-        return { done: true };
+        return this.afterComment(d);
+      },
+    },
+    // 5.11.3 «вложение»: the scanned answer sheet of a test (photo or document), optional
+    file: {
+      enter: async (ctx) =>
+        renderMenu(
+          ctx,
+          ctx.t('grade-ask-file'),
+          new InlineKeyboard()
+            .text(ctx.t('btn-skip'), flowCb('file', 'skip'))
+            .text(ctx.t('btn-cancel'), flowCb('file', 'cancel')),
+        ),
+      onCallback: async (ctx, d, action) => {
+        if (action === 'cancel') return this.cancel(ctx, d);
+        return action === 'skip' ? { done: true } : { stay: true };
+      },
+      onMedia: async (ctx, d, message) => {
+        const media = mediaOf(message);
+        if (!media || !UPLOADABLE_KINDS.includes(media.kind) || !ctx.actor) {
+          await say(ctx, ctx.t('upload-kind-refused'));
+          return { stay: true };
+        }
+        try {
+          const row = await this.ingest.execute({
+            actor: ctx.actor.actor,
+            ownerTeacherId: ctx.actor.actor.accountId,
+            bot: 'staff',
+            api: ctx.api,
+            telegram: media.file,
+          });
+          d.fileId = row.id;
+          return { done: true };
+        } catch (error) {
+          if (AppError.is(error, 'FILE_TYPE_NOT_ALLOWED') || AppError.is(error, 'FILE_TOO_LARGE')) {
+            await say(ctx, ctx.t(`error-${error.code.toLowerCase().replace(/_/g, '-')}`));
+            return { stay: true };
+          }
+          throw error;
+        }
       },
     },
   };
+
+  /** A new test record may take a scan; edits and the other journals finish here. */
+  private afterComment(d: GradeEntryData): FlowNext {
+    return d.type === 'tests' && !d.entryId ? { goto: 'file' } : { done: true };
+  }
 
   /** Editing keeps the date; a lesson record is dated by the lesson's day (preset): no date step then. */
   private afterKind(d: GradeEntryData): string {
@@ -367,6 +417,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
     d.category = null;
     d.testKindId = null;
     d.comment = null;
+    d.fileId = null;
     if (d.studentIds && d.index < d.studentIds.length) return { goto: 'journal' };
     ctx.session.flow = undefined;
     await renderMenu(ctx, ctx.t('grade-saved-many', { count: d.saved }), this.backKb(ctx, d));
@@ -384,6 +435,7 @@ export class GradeEntryFlow extends Flow<GradeEntryData> {
       category: d.category,
       testKindId: d.testKindId,
       comment: d.comment,
+      fileId: d.fileId ?? null,
     };
     try {
       if (d.entryId) await this.entries.update(actor, d.entryId, values);

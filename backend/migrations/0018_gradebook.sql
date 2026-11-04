@@ -101,6 +101,7 @@ CREATE TABLE grade_entry (
   comment        text CHECK (comment IS NULL OR length(comment) <= 500),
   lesson_id      uuid REFERENCES lesson(id),
   assignment_id  uuid REFERENCES assignment(id),
+  file_id        uuid REFERENCES file(id),              -- tests: the scanned answer sheet (5.11.3)
   source         text NOT NULL CHECK (source IN ('teacher', 'student', 'parent')),
   created_by     uuid NOT NULL REFERENCES account(id),
   status         text NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'pending', 'rejected')),

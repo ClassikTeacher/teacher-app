@@ -6,6 +6,7 @@ import { Clock } from '@shared/time/clock.js';
 import { type Actor, assertActive, assertRole, primaryRole } from '@modules/access/actor.js';
 import { FeatureService } from '@modules/access/features/feature.service.js';
 import { AuditService } from '@modules/audit/audit.service.js';
+import { FileRepository } from '@modules/files/file.repository.js';
 import { AccountRepository } from '@modules/identity/account.repository.js';
 import { OutboxService } from '@modules/outbox/outbox.service.js';
 import { FamilyLinkRepository } from '@modules/people/family/family-link.repository.js';
@@ -48,6 +49,8 @@ export interface GradeValueInput {
   testKindId?: string | null;
   weight?: number | null;
   comment?: string | null;
+  /** Tests: a draft file uploaded by the teacher (the scanned sheet); attached on save. */
+  fileId?: string | null;
 }
 
 export interface AddEntryInput extends GradeValueInput {
@@ -91,6 +94,7 @@ const SNAPSHOT_FIELDS = [
   'comment',
   'lessonId',
   'assignmentId',
+  'fileId',
   'status',
 ] as const;
 
@@ -114,6 +118,7 @@ export class GradeEntriesUseCase {
     private readonly family: FamilyLinkRepository,
     private readonly accounts: AccountRepository,
     private readonly profiles: TeacherProfileRepository,
+    private readonly files: FileRepository,
     private readonly features: FeatureService,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
@@ -144,6 +149,7 @@ export class GradeEntriesUseCase {
       const journal = await this.ownJournal(actor, input.journalId);
       const teacher = await this.accounts.findById(actor.accountId);
       const values = await this.normalizeValues(journal, input);
+      const fileId = await this.attachFile(actor, journal, input.fileId, now);
       const row = await this.entries.insert({
         journalId: journal.id,
         teacherId: journal.teacherId,
@@ -152,6 +158,7 @@ export class GradeEntriesUseCase {
         ...values,
         lessonId: input.lessonId ?? null,
         assignmentId: input.assignmentId ?? null,
+        fileId,
         source: 'teacher',
         createdBy: actor.accountId,
         status: 'confirmed',
@@ -194,8 +201,10 @@ export class GradeEntriesUseCase {
       };
       const values = await this.normalizeValues(journal, merged);
       const date = patch.date ? normalizeEntryDate(patch.date, this.today(teacher?.timezone)) : entry.date;
+      const fileId =
+        patch.fileId === undefined ? entry.fileId : await this.attachFile(actor, journal, patch.fileId, now);
       const before = entrySnapshot(entry);
-      const updated = await this.entries.update(entry.id, { ...values, date });
+      const updated = await this.entries.update(entry.id, { ...values, date, fileId });
       await this.entries.addHistory({
         entryId: entry.id,
         changedBy: actor.accountId,
@@ -448,6 +457,28 @@ export class GradeEntriesUseCase {
 
   private today(zone: string | undefined): string {
     return DateTime.fromJSDate(this.clock.now(), { zone: zone ?? 'UTC' }).toISODate()!;
+  }
+
+  /** 5.11.3 «вложение»: only a tests record carries a file; the draft must be the teacher's own upload. */
+  private async attachFile(
+    actor: Actor,
+    journal: JournalRow,
+    fileId: string | null | undefined,
+    now: Date,
+  ): Promise<string | null> {
+    if (!fileId) return null;
+    if (journal.type !== 'tests')
+      throw AppError.validation('Only a test record takes an attachment', { reason: 'file_not_tests' });
+    const attached = await this.files.markAttached([fileId], actor.accountId, now, {
+      uploadedBy: actor.accountId,
+    });
+    if (attached.length === 0) {
+      // already attached to this record on a retry, or someone else's / expired draft
+      const existing = await this.files.findById(fileId);
+      if (!existing || existing.ownerTeacherId !== actor.accountId || existing.status !== 'attached')
+        throw new AppError('CONFLICT', 'The file is no longer available', { reason: 'files_expired' });
+    }
+    return fileId;
   }
 
   private async record(

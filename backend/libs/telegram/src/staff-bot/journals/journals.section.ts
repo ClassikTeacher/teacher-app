@@ -13,6 +13,8 @@ import { scaleValueLabel } from '@modules/gradebook/gradebook.rules.js';
 import { JournalsUseCase } from '@modules/gradebook/journals.use-case.js';
 import type { GradeEntryRow } from '@modules/gradebook/schema.js';
 import type { Range } from '@modules/gradebook/stats.js';
+import { FileDeliveryService } from '@modules/files/file-delivery.service.js';
+import { FileRepository } from '@modules/files/file.repository.js';
 import { HomeworkQuery } from '@modules/homework/homework.query.js';
 import { cardDisplayName, TeacherStudentsQuery } from '@modules/people/links/students.query.js';
 import { TeacherProfileRepository } from '@modules/people/teacher-profile.repository.js';
@@ -50,6 +52,8 @@ export class JournalsSection implements StaffSectionModule {
     private readonly profiles: TeacherProfileRepository,
     private readonly lessons: LessonsQuery,
     private readonly homework: HomeworkQuery,
+    private readonly files: FileRepository,
+    private readonly delivery: FileDeliveryService,
     private readonly entryFlow: GradeEntryFlow,
     private readonly textFlow: JournalTextFlow,
     private readonly clock: Clock,
@@ -279,6 +283,14 @@ export class JournalsSection implements StaffSectionModule {
       }),
       kb,
     );
+    // 5.11.3: the scanned sheet follows the card as a document (withheld until the antivirus check)
+    if (entry.fileId && ctx.chat) {
+      const file = await this.files.findById(entry.fileId);
+      if (file && file.status !== 'deleted') {
+        const report = await this.delivery.sendMany(ctx.api, 'staff', ctx.chat.id, [file]);
+        if (report.skipped.length > 0) await say(ctx, ctx.t('smat-file-pending'));
+      }
+    }
   }
 
   private async edit(ctx: BotContext, actor: Actor, entryId: string): Promise<void> {

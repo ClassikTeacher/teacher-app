@@ -29,6 +29,7 @@ export type GradeEntryPatch = Partial<
     | 'comment'
     | 'lessonId'
     | 'assignmentId'
+    | 'fileId'
     | 'status'
     | 'deletedAt'
   >

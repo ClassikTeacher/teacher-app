@@ -1352,26 +1352,18 @@ ntf-grade-added = { $type ->
     [tests] 📈 Результат теста
     [custom] 🌟 Новая отметка
    *[school] 📊 Новая отметка
-} по предмету <b>{ $subject }</b> (учитель { $teacher }): <b>{ $value }</b>{ $kind ->
-    [] {""}
-   *[other] {" "}· { $kind }
-  }, { $date }.{ $source ->
+} по предмету <b>{ $subject }</b> (учитель { $teacher }): <b>{ $value }</b>{ $kindLine }, { $date }.{ $source ->
     [teacher] {""}
    *[other] {" "}Учитель подтвердил внесённую вами отметку.
-  }{ $comment ->
-    [] {""}
-   *[other] {"\n"}Комментарий: { $comment }
-  }
+  }{ $commentLine }
 ntf-grade-digest = 📊 Сегодня учитель { $teacher } добавил ещё несколько отметок по предмету <b>{ $subject }</b>. Откройте «Успеваемость», чтобы посмотреть все.
 ntf-grade-proposed = 📝 { $by }{ $source ->
     [parent] {" "}(родитель)
    *[other] {""}
-  } сообщил(а) отметку ученика { $student } по предмету <b>{ $subject }</b>: <b>{ $value }</b> · { $kind }, { $date }.{ $comment ->
-    [] {""}
-   *[other] {"\n"}Комментарий: { $comment }
-  }
+  } сообщил(а) отметку ученика { $student } по предмету <b>{ $subject }</b>: <b>{ $value }</b>{ $kindLine }, { $date }.{ $commentLine }
     Подтвердить запись в журнале?
-ntf-grade-rejected = ❌ Учитель { $teacher } не подтвердил отметку <b>{ $value }</b> · { $kind } ({ $date }) по предмету { $subject }. Если это ошибка — напишите учителю.
+ntf-grade-rejected = ❌ Учитель { $teacher } не подтвердил отметку <b>{ $value }</b>{ $kindLine } ({ $date }) по предмету { $subject }. Если это ошибка — напишите учителю.
+grade-comment-label = Комментарий
 btn-open-journal = 📊 Открыть журнал
 btn-grade-confirm = ✅ Подтвердить
 btn-grade-reject = ❌ Отклонить
@@ -1550,6 +1542,7 @@ grade-ask-category = Какая работа?
 grade-ask-kind = Какой тест?
 grade-ask-date = За какой день? Выберите или напишите дату «ДД.ММ».
 grade-ask-comment = Комментарий к записи (ученик его увидит) или «Пропустить».
+grade-ask-file = Прикрепите скан бланка (фото или файл) или «Пропустить».
 grade-value-invalid = Не понял значение. Напишите число в пределах шкалы (например «8» или «42/60»).
 grade-date-invalid = Не понял дату. Напишите «ДД.ММ» не позже сегодняшнего дня.
 grade-saved = Отметка записана в журнал.

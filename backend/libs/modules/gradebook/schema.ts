@@ -143,6 +143,8 @@ export const gradeEntry = pgTable(
     comment: text('comment'),
     lessonId: uuid('lesson_id'),
     assignmentId: uuid('assignment_id'),
+    /** Tests: the scanned answer sheet (5.11.3); the file module owns the row. */
+    fileId: uuid('file_id'),
     source: text('source', { enum: ENTRY_SOURCES }).notNull(),
     createdBy: uuid('created_by')
       .notNull()
