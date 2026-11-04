@@ -96,6 +96,8 @@ import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
 import { JournalsSection } from './staff-bot/journals/journals.section.js';
 import { GradeEntryFlow } from './staff-bot/journals/grade-entry.flow.js';
 import { JournalTextFlow } from './staff-bot/journals/journal-text.flow.js';
+import { ReportsSection } from './staff-bot/journals/reports.section.js';
+import { ReportFlow } from './staff-bot/journals/report.flow.js';
 
 const FLOWS = [
   OnboardingFlow,
@@ -139,6 +141,7 @@ const FLOWS = [
   SubmitFlow,
   GradeEntryFlow,
   JournalTextFlow,
+  ReportFlow,
 ];
 const SECTIONS = [
   TodaySection,
@@ -157,6 +160,7 @@ const SECTIONS = [
   MaterialsSection,
   AssignmentsSection,
   JournalsSection,
+  ReportsSection,
 ];
 const STUDENT_SECTIONS = [
   StudentScheduleSection,

@@ -32,6 +32,7 @@ import { ContentController } from './content/content.controller.js';
 import { HomeworkController } from './homework/homework.controller.js';
 import { GradebookModule } from '@modules/gradebook/gradebook.module.js';
 import { GradebookController } from './gradebook/gradebook.controller.js';
+import { ReportsController } from './gradebook/reports.controller.js';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { GradebookController } from './gradebook/gradebook.controller.js';
     ContentController,
     HomeworkController,
     GradebookController,
+    ReportsController,
   ],
   providers: [Clock],
 })

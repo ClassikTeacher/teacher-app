@@ -187,3 +187,34 @@ export const gradeEntryHistory = pgTable(
   (t) => [index('grade_entry_history_entry_idx').on(t.entryId, t.at)],
 );
 export type GradeEntryHistoryRow = typeof gradeEntryHistory.$inferSelect;
+
+// M6-03 (migration 0019): progress reports (5.12).
+
+export const REPORT_STATUSES = ['draft', 'sent'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export const report = pgTable(
+  'report',
+  {
+    id: idColumn(),
+    teacherId: uuid('teacher_id')
+      .notNull()
+      .references(() => account.id),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => account.id),
+    teacherStudentId: uuid('teacher_student_id')
+      .notNull()
+      .references(() => teacherStudent.id),
+    /** ISO dates, inclusive. */
+    periodFrom: date('period_from').notNull(),
+    periodTo: date('period_to').notNull(),
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+    comment: text('comment'),
+    status: text('status', { enum: REPORT_STATUSES }).notNull().default('draft'),
+    sentAt: tstz('sent_at'),
+    ...timestamps(),
+  },
+  (t) => [index('report_teacher_student_idx').on(t.teacherId, t.studentId, t.createdAt)],
+);
+export type ReportRow = typeof report.$inferSelect;

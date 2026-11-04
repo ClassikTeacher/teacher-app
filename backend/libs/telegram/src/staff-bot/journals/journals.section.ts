@@ -170,7 +170,7 @@ export class JournalsSection implements StaffSectionModule {
       const label = `${mark}${j.subject?.name ?? '—'} · ${ctx.t('journal-type', { type: j.journal.type })} (${j.count})`;
       kb.text(clip(label, 40), sectionCb('journals', 'j', j.journal.id)).row();
     }
-    kb.text(ctx.t('btn-report'), sectionCb('reports', 'new', linkId)).row();
+    kb.text(ctx.t('btn-report'), sectionCb('reports', 'list', linkId)).row();
     kb.text(ctx.t('btn-back'), sectionCb('journals', 'list'));
     await renderMenu(
       ctx,

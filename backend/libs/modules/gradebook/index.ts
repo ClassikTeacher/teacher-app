@@ -8,3 +8,7 @@ export * from './grade-entry.repository.js';
 export * from './journals.use-case.js';
 export * from './grade-entries.use-case.js';
 export * from './gradebook.query.js';
+export * from './report.repository.js';
+export * from './report-snapshot.js';
+export * from './report-text.js';
+export * from './reports.use-case.js';

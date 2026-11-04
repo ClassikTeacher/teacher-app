@@ -20,6 +20,7 @@ import { TeacherStudentRepository } from '@modules/people/links/teacher-student.
 import { PeopleModule } from '@modules/people/people.module.js';
 import { TeacherProfileRepository } from '@modules/people/teacher-profile.repository.js';
 import { GradebookController } from './gradebook.controller.js';
+import { ReportsController } from './reports.controller.js';
 
 type Json = { data: unknown; error?: { code: string } | null };
 
@@ -58,7 +59,7 @@ describe('Gradebook REST (9.2 «Gradebook»): journals, entries, stats, custom s
         PeopleModule,
         GradebookModule,
       ],
-      controllers: [GradebookController],
+      controllers: [GradebookController, ReportsController],
     }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     app.setGlobalPrefix('api/v1');
@@ -172,6 +173,34 @@ describe('Gradebook REST (9.2 «Gradebook»): journals, entries, stats, custom s
     expect(t.data).toMatchObject({ value: 42, max: 60, parts: { a: 30, b: 12 } });
     const tstats = await inject('GET', `/journals/${tests.id}/stats`, teacherToken);
     expect(tstats.data).toMatchObject({ type: 'tests', stats: { count: 1, toTarget: -10 } });
+  });
+
+  it('POST /reports builds a snapshot, POST /reports/{id}/send sends it once, GET lists and reads it', async () => {
+    const draft = await inject('POST', '/reports', teacherToken, {
+      linkId,
+      from: '2026-10-01',
+      to: '2026-10-31',
+    });
+    expect(draft.status).toBe(201);
+    expect(draft.data).toMatchObject({ status: 'draft', periodFrom: '2026-10-01', snapshot: { version: 1 } });
+    const id = (draft.data as { id: string }).id;
+    expect((await inject('GET', `/reports?linkId=${linkId}`, teacherToken)).data).toHaveLength(1);
+    expect((await inject('GET', `/reports/${id}`, otherToken)).status).toBe(404);
+    const sent = await inject('POST', `/reports/${id}/send`, teacherToken, { comment: 'Молодец' });
+    expect(sent.status).toBe(201);
+    expect(sent.data).toMatchObject({ status: 'sent', comment: 'Молодец' });
+    expect((await inject('POST', `/reports/${id}/send`, teacherToken, {})).status).toBe(409);
+    const atOnce = await inject('POST', '/reports', teacherToken, {
+      linkId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+      send: true,
+    });
+    expect(atOnce.data).toMatchObject({ status: 'sent' });
+    expect(
+      (await inject('POST', '/reports', teacherToken, { linkId, from: '2026-11-30', to: '2026-11-01' }))
+        .status,
+    ).toBe(400);
   });
 
   it('GET|PUT /grade-scales/custom replaces the scale and refuses bad shapes', async () => {

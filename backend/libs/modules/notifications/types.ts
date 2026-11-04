@@ -267,6 +267,13 @@ export const NOTIFICATION_TYPES = {
     ccParentsByDefault: false,
     recipientCanDisable: true,
   },
+  // 5.12 / 5.13.1 (M6-03): the progress report to the student, a copy to the parents by default
+  'report.sent': {
+    code: 'report.sent',
+    critical: false,
+    ccParentsByDefault: true,
+    recipientCanDisable: true,
+  },
   // 5.10 / 5.13.1 (M5-03, M5-04): homework to the student (copies by default), submissions to the teacher
   'homework.assigned': {
     code: 'homework.assigned',
@@ -334,6 +341,7 @@ export const CC_CONFIGURABLE_TYPES: readonly NotificationTypeCode[] = [
   'series.created',
   'material.granted',
   'grade.added',
+  'report.sent',
   'homework.assigned',
   'homework.overdue',
   'submission.reviewed',

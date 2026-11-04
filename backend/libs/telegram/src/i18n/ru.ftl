@@ -1499,6 +1499,53 @@ btn-journal-hide = 🙈 Скрыть журнал
 btn-journal-unhide = 👁 Показать журнал
 btn-target = 🎯 Цель
 btn-report = 📄 Отчёт
+## M6-03: progress reports (UC-31, 5.12)
+rpt-title = 📄 <b>Отчёт: { $student }</b>, { $from } — { $to } (учитель { $teacher })
+rpt-lessons = <b>Занятия.</b> Проведено: { $held }{ $notHeld ->
+    [0] {""}
+   *[other] {" "}· не состоялось: { $notHeld }
+}. Посещаемость: был(а) { $present }, опоздал(а) { $late }, отсутствовал(а) с предупреждением { $absentNotified }, без предупреждения { $absent }.
+rpt-topics = Темы: { $topics }.
+rpt-cancelled = Отмены: { $total } (учитель { $byTeacher }, ученик или родитель { $byStudent }, система { $system }){ $late ->
+    [0] {""}
+   *[other] {", "}поздних: { $late }
+}.
+rpt-homework = <b>Домашние задания.</b> Выдано: { $assigned } · сдано вовремя: { $onTime } · с опозданием: { $late } · не сдано: { $notSubmitted } · принято: { $accepted } · на доработку: { $returned } · средняя отметка: { $average }.
+rpt-subject = <b>{ $subject }</b>
+rpt-school = Школьные отметки: { $count }, средний балл <b>{ $average }</b>.
+rpt-tests = Тесты: { $count }, последний <b>{ $last }</b>{ $delta }, лучший { $best }, среднее { $average }, цель { $target }.
+rpt-custom = Мой журнал: { $values }.
+rpt-teacher-comment = <b>Комментарий учителя:</b> { $comment }
+ntf-report-sent = { $body }
+btn-open-report = 📄 Открыть отчёт
+reports-list = <b>Отчёты: { $student }</b>
+    Выберите отчёт или составьте новый.
+reports-list-empty = <b>Отчёты: { $student }</b>
+    Отчётов пока нет. Составьте первый: выберите период, проверьте текст и отправьте — ученик и родители получат его сообщением.
+btn-report-new = ➕ Новый отчёт
+report-ask-period = <b>Отчёт.</b> За какой период? Выберите или напишите «ДД.ММ — ДД.ММ».
+btn-period-month = Этот месяц
+btn-period-prev = Прошлый месяц
+report-period-invalid = Не понял период. Напишите две даты, например «01.10 — 31.10».
+report-ask-comment = <b>Комментарий учителя</b> к отчёту (увидят ученик и родители) или «Пропустить».
+report-preview = { $body }
+
+    <i>Так его получат ученик и родители. Отправить?</i>
+btn-report-send = 📤 Отправить
+btn-report-draft = 💾 Сохранить черновик
+report-sent-done = Отчёт отправлен: ученик и родители (по настройкам копий) получили его сообщением.
+report-draft-saved = Черновик сохранён. Отправить его можно из списка отчётов.
+report-card = { $body }
+
+    <i>{ $status ->
+        [sent] Отправлен { $when }
+       *[draft] Черновик от { $when }
+    }</i>
+report-line = { $status ->
+    [sent] 📤
+   *[draft] 📝
+} { $from } — { $to }
+report-already-sent = Этот отчёт уже отправлен.
 btn-set-scale = 🌟 Моя шкала
 btn-test-kinds = 📈 Виды тестов
 btn-grade-auto = { $state } Отметки от учеников без подтверждения

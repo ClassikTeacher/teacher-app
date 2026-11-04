@@ -81,6 +81,7 @@ describe('notification templates', () => {
             type: 'school',
             kindLine: ' · контрольная',
             commentLine: '',
+            body: 'Отчёт',
           },
         }),
         code,

@@ -248,6 +248,34 @@ describe('UC-29 e2e: journals in StaffBot — records, scale, test kinds, visibi
     expect(staff.tg.sentTexts(teacherTg).at(-2)).toContain('Кнопка устарела');
   });
 
+  it('UC-31: the report dialog — this month → comment → preview → send; the draft list shows it as sent', async () => {
+    await staff.text(teacher(), '/menu');
+    await staff.press(teacher(), '📊 Журналы и отчёты');
+    await staff.press(teacher(), /Петя/);
+    await staff.press(teacher(), '📄 Отчёт');
+    expect(last()).toContain('Отчётов пока нет');
+    await staff.press(teacher(), '➕ Новый отчёт');
+    expect(last()).toContain('За какой период');
+    await staff.text(teacher(), '31.10 — 01.10');
+    expect(staff.tg.sentTexts(teacherTg).at(-1)).toContain('Не понял период');
+    await staff.press(teacher(), 'Этот месяц');
+    expect(last()).toContain('Комментарий учителя');
+    await staff.text(teacher(), 'Хорошо поработали');
+    expect(last()).toContain('Отчёт: Петя Иванов');
+    expect(last()).toContain('Школьные отметки: 2'); // the two marks of the first test (8 and the confirmed 9)
+    expect(last()).toContain('Хорошо поработали');
+    expect(last()).toContain('Отправить?');
+    await staff.press(teacher(), '📤 Отправить');
+    expect(last()).toContain('Отчёт отправлен');
+    await staff.press(teacher(), '◀️ Назад');
+    expect(staff.tg.findButton(/📤 01\.11\.2026 — 04\.11\.2026/, teacherTg)).toBeTruthy();
+    await staff.press(teacher(), /📤 01\.11\.2026/);
+    expect(last()).toContain('Отправлен 04.11.2026');
+    await drainOutbox(ctx, tdb);
+    const toPetya = await tdb.db.select().from(notification).where(eq(notification.recipientId, petyaId));
+    expect(toPetya.filter((n) => n.typeCode === 'report.sent')).toHaveLength(1);
+  });
+
   it('5.6.4: «⭐ Отметки» after the lesson report grades every participant of a group lesson in turn', async () => {
     const actor = {
       accountId: teacherId,

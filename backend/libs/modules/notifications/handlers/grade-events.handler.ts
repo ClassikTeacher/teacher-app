@@ -7,6 +7,9 @@ import { entryKindText, entryValueText } from '@modules/gradebook/format.js';
 import { GradeEntryRepository } from '@modules/gradebook/grade-entry.repository.js';
 import { GRADE_DIGEST_THRESHOLD } from '@modules/gradebook/gradebook.rules.js';
 import { JournalRepository } from '@modules/gradebook/journal.repository.js';
+import { isReportSnapshot } from '@modules/gradebook/report-snapshot.js';
+import { renderReport } from '@modules/gradebook/report-text.js';
+import { ReportRepository } from '@modules/gradebook/report.repository.js';
 import { JOURNAL_TYPES, type GradeEntryRow, type JournalRow } from '@modules/gradebook/schema.js';
 import { AccountRepository } from '@modules/identity/account.repository.js';
 import { type DeliveredEvent, DomainEventBus } from '@modules/outbox/event-bus.js';
@@ -28,6 +31,7 @@ const entryEvent = z.object({
   source: z.enum(['teacher', 'student', 'parent']),
   createdBy: uuid,
 });
+const reportEvent = z.object({ reportId: uuid, teacherId: uuid, studentId: uuid });
 
 function parse<T>(schema: z.ZodType<T>, event: DeliveredEvent): T {
   const result = schema.safeParse(event.payload);
@@ -53,6 +57,7 @@ export class GradeEventsHandler implements OnModuleInit {
     private readonly subjects: SubjectRepository,
     private readonly journals: JournalRepository,
     private readonly entries: GradeEntryRepository,
+    private readonly reports: ReportRepository,
     private readonly notifications: NotificationService,
     private readonly clock: Clock,
   ) {}
@@ -62,6 +67,27 @@ export class GradeEventsHandler implements OnModuleInit {
     this.bus.on('grade.proposed', (e) => this.proposed(e));
     this.bus.on('grade.rejected', (e) => this.rejected(e));
     this.bus.on('grade.removed', (e) => this.removed(e));
+    this.bus.on('report.sent', (e) => this.reportSent(e));
+  }
+
+  /** UC-31 (5.12): the report itself as the message, to the student with a copy to the parents (NTF-01). */
+  private async reportSent(event: DeliveredEvent): Promise<void> {
+    const p = parse(reportEvent, event);
+    const row = await this.reports.findById(p.reportId);
+    if (!row || row.status !== 'sent' || !isReportSnapshot(row.snapshot)) return;
+    const body = renderReport((key, vars) => this.labels.t(key, 'ru', vars), row.snapshot, row.comment);
+    await this.notifications.schedule({
+      type: 'report.sent',
+      recipientId: row.studentId,
+      bot: 'student',
+      payload: {
+        body,
+        teacher: esc(row.snapshot.teacher.name),
+        [BUTTONS_PAYLOAD_KEY]: [{ text: this.labels.t('btn-open-report'), data: `s:progress:r:${row.id}` }],
+      },
+      dedupeKey: `report.sent:${row.id}`,
+      teacherId: row.teacherId,
+    });
   }
 
   private async load(event: DeliveredEvent) {

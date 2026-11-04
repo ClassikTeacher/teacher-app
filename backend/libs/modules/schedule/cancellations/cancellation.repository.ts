@@ -83,4 +83,23 @@ export class CancellationRepository {
       .limit(1);
     return rows[0] ?? null;
   }
+
+  /** The cancelling items of several lessons together with their acts (who, late or not), for statistics (5.12). */
+  async cancellationsOf(
+    lessonIds: readonly string[],
+  ): Promise<Array<{ item: CancellationItemRow; cancellation: CancellationRow }>> {
+    if (lessonIds.length === 0) return [];
+    const rows = await this.txm.db
+      .select({ item: cancellationItem, cancellation })
+      .from(cancellationItem)
+      .innerJoin(cancellation, eq(cancellation.id, cancellationItem.cancellationId))
+      .where(
+        and(
+          inArray(cancellationItem.lessonId, [...lessonIds]),
+          eq(cancellationItem.action, 'cancelled'),
+          isNull(cancellationItem.studentId),
+        ),
+      );
+    return rows;
+  }
 }
